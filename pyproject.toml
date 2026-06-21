@@ -1,0 +1,23 @@
+# ABA 모노레포 — 비-ROS Python 의존성 (노트 4-3)
+#
+# 2층 의존성 관리:
+#   ROS2 패키지 (C++ fleet, Python tasks)  →  package.xml + rosdep + colcon
+#   비-ROS Python (service/gui/scripts)     →  이 파일 (+ extras)
+#
+# ⚠️ ROS 노드가 쓰는 Python 패키지는 system python3 에 설치. 여기 선언은 service/gui 용.
+#    두 풀(system python ↔ 이 venv)을 섞지 말 것.
+#
+# 설치 예: pip install -e ".[ai]"  /  pip install -e ".[web,dev]"
+
+[project]
+name = "aba"
+version = "0.0.0"
+description = "ABA (Arte Book Assistance) — non-ROS Python deps"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+ai  = ["ultralytics", "torch"]   # AI 서버 (비전)
+gui = ["PyQt5"]                  # drive board GUI
+web = ["fastapi", "uvicorn"]     # 백엔드
+dev = ["pytest", "ruff"]

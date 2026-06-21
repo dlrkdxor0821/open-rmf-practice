@@ -1,0 +1,9 @@
+# ABA 전체 스택 오케스트레이션 (자리만 — 채우기 전)
+#
+# 이 루트 compose 는 ABA 서비스 전반(service/gui 등)을 묶는 용도.
+# AI 챗봇(Labi Bot) 스택은 별도로 src/service/labi_bot/docker-compose.yml 에 완성안이 있다
+# (docs/aba-architecture.md §7 참고).
+#
+# TODO: 서비스가 구체화되면 채운다.
+
+services: {}
