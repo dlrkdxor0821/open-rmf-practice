@@ -4,7 +4,7 @@
 
     <arg name="namespace" default=""/>
     <arg name="yaml_filename" default=""/>
-    <arg name="map" default="$(find-pkg-share pinky_navigation)/map/my_map.yaml"/>
+    <arg name="map" default=""/>  <!-- 맵은 libi_rmf_maps에 있음. 실행 시 map:=.../library/new_map.yaml 로 전달 -->
     <arg name="use_sim_time" default="false"/>
     <arg name="params_file" default="$(find-pkg-share pinky_navigation)/params/nav2_params.yaml"/>
     <arg name="autostart" default="true"/>

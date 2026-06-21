@@ -3,7 +3,7 @@
     <set_env name="RCUTILS_LOGGING_BUFFERED_STREAM" value="1"/>
 
     <arg name="namespace" default=""/>
-    <arg name="map" default="$(find-pkg-share pinky_navigation)/map/my_map.yaml"/>
+    <arg name="map" default=""/>  <!-- 맵은 libi_rmf_maps에 있음. 실행 시 map:=.../library/new_map.yaml 로 전달 -->
     <arg name="use_sim_time" default="True"/>
     <arg name="params_file" default="$(find-pkg-share pinky_navigation)/params/nav2_params.yaml"/>
     <arg name="autostart" default="True"/>
