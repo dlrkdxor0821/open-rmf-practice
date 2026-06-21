@@ -72,6 +72,39 @@ source install/setup.bash
 - `--symlink-install`: launch·config·python 수정 시 **재빌드 없이** 반영 (학습에 편함).
 - ⚠️ 루트 빌드 ↔ ws별 빌드를 **섞지 말 것** (install 공간이 흩어져 헷갈림). 공부 중엔 "항상 루트에서".
 
+## M1 맵 작업 — navgraph 좌표 보정 (`scripts/rmf/`)
+
+가제보 world는 pgm_to_gazebo(pgm 기준), navgraph는 building.yaml(traffic_editor 기준)로 **따로** 생성돼
+좌표가 어긋날 수 있다(M1 함정). 대응점 몇 개로 **scale·회전·이동**을 맞춰 navgraph를 world 좌표계로 보정한다.
+
+| 파일 | 역할 |
+|---|---|
+| `make_navgraph.sh` | building.yaml → navgraph 생성 + (pairs 주면) 보정까지 한 번에 |
+| `fix_navgraph.py` | navgraph 보정 핵심 (대응점 → 2D 닮음변환) |
+| `view_map.launch.py` · `view_map.rviz` | 맵을 rviz에 **실좌표**로 띄움 (dst 좌표 읽기용) |
+| `pairs.example.yaml` | 대응점(pairs) 작성 예시 |
+
+워크플로우 (루트에서, `source /opt/ros/jazzy/setup.bash` 후):
+
+```bash
+# 1) navgraph 생성 + 좌표(src) 보기
+scripts/rmf/make_navgraph.sh fleet/src/libi_rmf_maps/maps/library/new_map.building.yaml
+
+# 2) rviz로 맵 띄워 dst 좌표 읽기 ('Publish Point' 클릭 후 맵 클릭)
+ros2 launch scripts/rmf/view_map.launch.py map:=fleet/src/libi_rmf_maps/maps/library/new_map.yaml
+ros2 topic echo /clicked_point        # point.x, point.y = dst (rviz 하단 상태바에도 표시)
+
+# 3) new_map.pairs.yaml 작성 (맵 폴더에): src=1단계 출력, dst=2단계 클릭. 멀리 떨어진 2쌍+
+#    pairs.example.yaml 복사해서 채움
+
+# 4) 보정 실행
+scripts/rmf/make_navgraph.sh \
+  fleet/src/libi_rmf_maps/maps/library/new_map.building.yaml \
+  fleet/src/libi_rmf_maps/maps/library/new_map.pairs.yaml
+```
+
+- 결과: `/tmp/out/0_fixed.yaml`. **RMS 잔차 작으면 성공**(scale 달라도 OK). navgraph 재생성 시 4단계를 다시 실행.
+
 ## 로봇 / 참고 자산
 - 연습 로봇 URDF: `/home/asd/pinky_pro` (`pinky_description`). RMF은 footprint 반경만 fleet config에.
 - `/home/asd/personal_repo/pingdergarten` — **폴더 컨벤션 원본** (controller/service/app/db 최상위 분리)
