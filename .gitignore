@@ -1,0 +1,31 @@
+# ─── ROS 2 / colcon (워크스페이스별 빌드 산출물) ───
+# controller/libi-drive-controller, controller/libi-handy-controller, fleet 각 ws 공통
+build/
+install/
+log/
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ─── 가상환경 (이 프로젝트는 system python 사용 — 안전차원) ───
+.venv/
+venv/
+
+# ─── OS / 에디터 ───
+.DS_Store
+*.swp
+*~
+.idea/
+# .vscode/        # 공유 IDE 설정을 커밋하려면 주석 유지
+
+# ─── 대용량 vendor 바이너리 (pinky_pro) ───
+# 실물용으로 통째로 가져옴. ABA가 안 쓰는 표정 GIF(32M)는 커밋 제외 (디스크엔 유지):
+# ABA는 자체 GUI(libi_gui)라 pinky 표정 LCD 미사용.
+controller/libi-drive-controller/src/pinky_pro/pinky_emotion/emotion/*.gif
+# 필요한 메시(.dae 67M 등)는 커밋 유지. 더 가볍게 하려면 git-lfs 권장 — 요청 시 .gitattributes 세팅.
