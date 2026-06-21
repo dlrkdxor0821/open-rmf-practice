@@ -82,6 +82,7 @@ source install/setup.bash
 | `make_navgraph.sh` | building.yaml → navgraph 생성 + (pairs 주면) 보정까지 한 번에 |
 | `fix_navgraph.py` | navgraph 보정 핵심 (대응점 → 2D 닮음변환) |
 | `view_map.launch.py` · `view_map.rviz` | 맵을 rviz에 **실좌표**로 띄움 (dst 좌표 읽기용) |
+| `show_navgraph.py` | navgraph(lane·vertex)를 rviz 마커로 표시 (단독 실행 가능 — gazebo 테스트 때도 사용) |
 | `pairs.example.yaml` | 대응점(pairs) 작성 예시 |
 
 워크플로우 (루트에서, `source /opt/ros/jazzy/setup.bash` 후):
@@ -91,19 +92,28 @@ source install/setup.bash
 scripts/rmf/make_navgraph.sh fleet/src/libi_rmf_maps/maps/library/new_map.building.yaml
 
 # 2) rviz로 맵 띄워 dst 좌표 읽기 ('Publish Point' 클릭 후 맵 클릭)
-ros2 launch scripts/rmf/view_map.launch.py map:=fleet/src/libi_rmf_maps/maps/library/new_map.yaml
+#    점 찍은 png를 보려면 new_map.png.yaml 로 띄움 (pgm과 동일 좌표, 좌표읽기 전용)
+ros2 launch scripts/rmf/view_map.launch.py map:=fleet/src/libi_rmf_maps/maps/library/new_map.png.yaml
 ros2 topic echo /clicked_point        # point.x, point.y = dst (rviz 하단 상태바에도 표시)
 
 # 3) new_map.pairs.yaml 작성 (맵 폴더에): src=1단계 출력, dst=2단계 클릭. 멀리 떨어진 2쌍+
 #    pairs.example.yaml 복사해서 채움
 
-# 4) 보정 실행
+# 4) 보정 실행 → new_map.navgraph.yaml 생성
 scripts/rmf/make_navgraph.sh \
   fleet/src/libi_rmf_maps/maps/library/new_map.building.yaml \
   fleet/src/libi_rmf_maps/maps/library/new_map.pairs.yaml
+
+# 5) (확인) rviz에 맵 + navgraph(lane·vertex) 띄워 정렬 눈으로 검증
+ros2 launch scripts/rmf/view_map.launch.py \
+  map:=fleet/src/libi_rmf_maps/maps/library/new_map.yaml \
+  navgraph:=fleet/src/libi_rmf_maps/maps/library/new_map.navgraph.yaml
 ```
 
-- 결과: `/tmp/out/0_fixed.yaml`. **RMS 잔차 작으면 성공**(scale 달라도 OK). navgraph 재생성 시 4단계를 다시 실행.
+- 결과: `new_map.navgraph.yaml` (building.yaml 옆에 저장). **RMS 잔차 작으면 성공**(scale 달라도 OK). 파생물이라 building.yaml/pairs.yaml 바뀌면 4단계 재실행. building.yaml(편집용 원본)은 안 건드림.
+- **dst 기준점 보이게**: 점 찍은 `new_map.png` 를 rviz에 띄우려면 2단계처럼 `new_map.png.yaml` 사용. 점은 **빈 공간에 진하게**, traffic_editor 배경과 **같은 png**를 써야 "점=vertex=클릭점"이 일치. 실제 주행 맵은 `new_map.yaml`(pgm) 그대로 사용.
+- `new_map.png.yaml` 과 `new_map.yaml` 의 **origin·resolution 은 항상 같게** 유지 (안 그러면 dst 어긋남).
+- **navgraph 시각화**: 5단계가 rviz에 lane(노랑 선)·vertex(시안 점)를 띄워준다(내부적으로 `show_navgraph.py` 실행). `show_navgraph.py` 는 독립 노드라 **나중에 gazebo 테스트의 rviz에도** 단독으로 얹을 수 있음: `python3 scripts/rmf/show_navgraph.py <navgraph.yaml>` → rviz에 MarkerArray `/navgraph_markers` 추가.
 
 ## 로봇 / 참고 자산
 - 연습 로봇 URDF: `/home/asd/pinky_pro` (`pinky_description`). RMF은 footprint 반경만 fleet config에.

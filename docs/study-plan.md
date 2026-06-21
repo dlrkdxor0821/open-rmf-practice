@@ -132,18 +132,28 @@ open-rmf-practice/
 
 ```
 SLAM ──> map.pgm + map.yaml ──┬─> pgm_to_gazebo ──> world.sdf        (벽/바닥/충돌 — Gazebo 화면)
-                              └─> traffic_editor(배경=pgm) 차선 그리기 ──> building.yaml
-                                                          └─> building_map_generator nav ──> nav graph (*.yaml)
+                              └─> traffic_editor(배경=png) 차선 그리기 ──> building.yaml
+                                          └─> building_map_generator nav ──> nav graph (어긋남)
+                                                          └─> fix_navgraph(pairs 보정) ──> navgraph (실좌표 정렬)
 ```
 
 ### `/10` 스케일 처리 (본인 방식 + 대안)
 - **본인 방식(주)**: pgm 위에 차선/노드를 그릴 때 실측이 너무 작아 편집이 불편 → **10m×10m로 키워** 작업 → 결과 좌표를 **÷10** 해 실좌표로 환원.
 - **대안(권장 보조)**: traffic_editor의 **measurement(측정선)** — 두 점 사이에 선을 긋고 실거리를 입력하면 전체 스케일을 자동 보정. 결과는 같고 실수가 적다.
 
-### ⚠️ M1 최대 난관 — 좌표 정렬 (검증 단계로 못박음)
-`pgm_to_gazebo` world의 좌표계(`map.yaml`의 원점·해상도)와 traffic_editor nav graph(÷10 한 좌표)가 **같은 실좌표계로 맞물려야** 로봇이 벽을 안 뚫는다.
-- 검증: nav graph의 waypoint 몇 개를 world에 띄워 벽/통로와 일치하는지 눈으로 확인.
-- 안 맞으면 traffic_editor 원점/스케일을 `map.yaml`에 맞춰 재조정.
+### ⚠️ M1 최대 난관 — 좌표 정렬 (대응점 보정으로 해결 ✅ 구현됨)
+`pgm_to_gazebo` world(원점=`map.yaml`)와 traffic_editor navgraph는 **출처가 달라** 좌표가 어긋난다. traffic_editor 원점/스케일을 손으로 맞추는 대신, **대응점(pairs)으로 변환을 자동 계산**해 navgraph를 world 좌표계로 보정한다 (도구 `scripts/rmf/`, 상세 흐름은 루트 README "M1 맵 작업").
+
+흐름:
+1. `building_map_generator nav` 로 navgraph 생성(어긋난 상태) — 좌표 = `src`
+2. rviz에 맵 띄우고 `Publish Point` 로 waypoint 실위치 클릭 → 좌표 = `dst` (`view_map.launch.py` + `ros2 topic echo /clicked_point`)
+   - png에 점을 찍어두면 `new_map.png.yaml`(png를 map으로 로드)로 띄워 클릭 정밀도↑
+3. `pairs.yaml`(src↔dst) 작성 → `fix_navgraph.py` 가 **2D 닮음변환(scale·회전·이동)** 을 최소제곱으로 계산·적용
+   - 대응점 2~3쌍이면 충분(나머지 waypoint는 자동 환산). 클릭 순서를 몰라도 기하로 매칭 가능.
+4. 검증: `show_navgraph.py` 로 rviz에 lane·vertex 띄워 통로와 일치 확인 + **RMS 잔차**로 정량 확인.
+
+> 실측: library 맵에서 9쌍 대응점으로 **RMS ≈ 1cm** 달성. offset x ≈ pgm 원점(-10.004)과 일치 → 프레임 정확 복원 확인.
+> navgraph는 파생물 → `building.yaml`(편집 원본)은 안 건드리고, `make_navgraph.sh` 로 `new_map.navgraph.yaml` 재생성.
 
 ### 🔧 M1 미정 결정 (나중에 택1)
 - **A. SLAM 직접**: pinky gz 시뮬에서 `slam_toolbox`로 주행하며 맵 작성 → pgm 저장. (전체 경험 ↔ teleop/slam 셋업 부담)
@@ -161,9 +171,9 @@ SLAM ──> map.pgm + map.yaml ──┬─> pgm_to_gazebo ──> world.sdf   
 
 ## 7. 다음 액션
 
-- [ ] **M1-결정**: SLAM 직접(A) vs 기존 pgm(B) 택1
-- [ ] 각 `libi_rmf_*` 패키지의 빌드 파일(`package.xml`/`CMakeLists.txt`/`setup.py`) 채우기
+- [x] **M1 완료** (2026-06-22): 기존 pgm(B) → world(pgm_to_gazebo) + building.yaml→navgraph + **대응점 보정**(`scripts/rmf/`, RMS≈1cm) + rviz 시각화 검증
+- [ ] 각 `libi_rmf_*` 패키지의 빌드 파일(`package.xml`/`CMakeLists.txt`/`setup.py`) 채우기 (M2에서 navgraph 빌드 연동 포함)
 - [ ] `rmf_demos` 소스 빌드 (slotcar 에셋/런치 참고용) — `open-rmf-test/README` 절차
-- [ ] M1 착수: pgm → world + traffic_editor nav graph + 좌표 정렬 검증
+- [ ] **M2 착수**: pinky URDF를 slotcar로 1대 등장 (RMF 직접 구동)
 
 > 진행 순서 원칙(노트 6장): **시뮬 1대(같은 도메인) → 다중(교통검증) → 태스크/팔 → 그제서야 nav2(M5)**. 한 번에 한 변수만.

@@ -2,49 +2,54 @@
 
 - **빌드타입**: `ament_cmake` · **위치**: `fleet/src/libi_rmf_maps`
 - **rmf_demos 대응**: `rmf_demos_maps` (또는 `rosconkr_maps`)
-- **역할**: traffic_editor `building.yaml`(★원본·손관리) 보관 + 빌드 시 `building_map_generator`로
-  `world` / `nav graph` **파생물 생성**.
+- **역할**: 맵 원본(traffic_editor `building.yaml` 등) 보관 + navgraph(RMF 주행 그래프) 생성·보정.
+  보정 **워크플로우/도구는 루트 README의 "M1 맵 작업" 섹션**(`scripts/rmf/`) 참고.
+- `CMakeLists.txt`/`package.xml` 은 아직 미작성 — M2에서 빌드 연동 시 추가.
 
-## 들어갈 것 — `maps/library/` 4-파일 구성
+## maps/library/ 파일 구성
 
-맵 한 장소의 모든 표현(격자/배경/RMF지도)을 **한 폴더에 모아 단일 출처**로 둔다.
-pgm·yaml도 pinky가 아니라 **여기**에 둔다 (코드 수정 ↔ 맵 데이터 분리). nav2는 이 경로를 *참조*만 함.
+맵 한 장소의 모든 표현을 한 폴더에 모아 **단일 출처**로 둔다. pgm·png도 pinky가 아니라 여기에 둔다.
 
 ```
 fleet/src/libi_rmf_maps/maps/library/
-  library.pgm            ← SLAM 점유격자
-  library.yaml           ← pgm 메타(원점·해상도)
-  library.png            ← pgm→png 배경
-  library.building.yaml  ← RMF 지도 본체 (차선·노드·벽)
-CMakeLists.txt           ← (예정) 빌드 시 world/nav graph 자동 생성
-package.xml              ← (예정)
+  # ── 원본 (소스, 손관리) ──
+  new_map.pgm            ← SLAM 점유격자
+  new_map.yaml           ← pgm 메타(원점·해상도) — 좌표 정렬 기준
+  new_map.png            ← pgm→png 배경 (traffic_editor 트레이싱 + dst용 점 찍기)
+  new_map.building.yaml  ← RMF 지도 본체 (vertex·lane·measurement) — traffic_editor 편집
+  new_map.pairs.yaml     ← navgraph 보정용 대응점 (src=navgraph / dst=rviz 클릭)
+  # ── 헬퍼 ──
+  new_map.png.yaml       ← png를 rviz map으로 띄우는 yaml (점 보며 dst 읽기용; new_map.yaml과 origin/res 동일)
+  # ── 파생물 (make_navgraph.sh 출력) ──
+  new_map.navgraph.yaml  ← 보정된 RMF 주행 그래프 (building.yaml + pairs.yaml 로 재생성 가능)
 ```
 
-| 파일 | 누가 쓰나 | 언제 |
+> 가제보 world(`new_map.sdf`)는 `controller/.../pinky_gz_sim/worlds/` 에 있다 (gz 패키지가 자연스러운 위치, pgm_to_gazebo 생성).
+
+| 파일 | 종류 | 누가 쓰나 |
 |---|---|---|
-| `library.pgm` | `pgm_to_gazebo`(world 생성) + nav2 `map_server` | M1, M5 |
-| `library.yaml` | 좌표 정렬 기준(원점·해상도) + nav2 `map_server` | M1, M5 |
-| `library.png` | traffic_editor 배경(트레이싱 종이) | M1 (편집용) |
-| `library.building.yaml` | RMF 본체 — `building_map_generator`로 world/navgraph 생성 | M1~ |
+| `new_map.pgm` / `.yaml` | 원본 | pgm_to_gazebo(world), nav2 map_server, 좌표 정렬 기준 |
+| `new_map.png` | 원본 | traffic_editor 배경, dst용 점 찍기 |
+| `new_map.building.yaml` | 원본 | RMF 지도 본체 (traffic_editor 편집) |
+| `new_map.pairs.yaml` | 원본 | navgraph 보정 대응점 |
+| `new_map.png.yaml` | 헬퍼 | rviz에서 png 띄워 dst 읽기 |
+| `new_map.navgraph.yaml` | 파생물 | RMF 주행 그래프 (fleet adapter가 읽음, M2~) |
 
 > ⚠️ `pgm → png → building.yaml`은 같은 장소를 묘사하는 **한 세트**라 반드시 같이 둔다 (떼면 좌표 드리프트).
-> ⚠️ **world.sdf·nav graph는 여기 두지 않음** — building.yaml로부터 빌드 때 생성되는 파생물(build/install로 빠짐). 소스엔 위 4개만.
 
-### nav2(M5)는 복사 말고 참조
-pinky 기존 샘플 맵(`pinky_navigation/map`)은 그대로 두고, ABA library 맵은 경로만 덮어쓴다:
+## navgraph 생성·보정 (요약 — 상세는 루트 README)
+
+```bash
+# building.yaml + pairs.yaml → new_map.navgraph.yaml (생성 + 좌표 보정)
+scripts/rmf/make_navgraph.sh maps/library/new_map.building.yaml maps/library/new_map.pairs.yaml
+```
+- ⚠️ navgraph는 building.yaml에 **lane(차선)** 이 있어야 나온다. vertex만 있으면 연결 안 됨.
+- ⚠️ world(pgm 기준) ↔ navgraph(building.yaml 기준)는 출처가 달라 어긋남 → `pairs`로 **scale·회전·이동 보정** (M1 핵심 함정, docs/study-plan.md §5·6).
+- navgraph는 **파생물** — building.yaml/pairs.yaml 바뀌면 재생성. building.yaml(편집용 원본)은 안 건드림.
+
+## nav2(M5)는 복사 말고 참조
+ABA library 맵 경로를 nav2 launch에서 **참조만** 한다 (복사 X):
 ```xml
-<!-- libi_drive 오버레이 / bringup launch -->
-<arg name="map" value="$(find-pkg-share libi_rmf_maps)/maps/library/library.yaml"/>
+<arg name="map" value="$(find-pkg-share libi_rmf_maps)/maps/library/new_map.yaml"/>
 ```
 > `controller/`와 `fleet/`는 별도 colcon ws → nav2가 참조하려면 **두 ws를 같이 source(overlay)**. (M5는 어차피 둘 다 띄움)
-
-## 생성 명령 (참고 — open-rmf-test/README 4장)
-```bash
-# world (Gazebo 화면)        : <입력.yaml> <출력.world> <모델출력폴더>
-ros2 run rmf_building_map_tools building_map_generator gazebo library.building.yaml library.world .
-# nav graph (RMF 주행/교통)  : <입력.yaml> <출력폴더>   → 0.yaml, 1.yaml ...
-ros2 run rmf_building_map_tools building_map_generator nav    library.building.yaml .
-```
-
-> ⚠️ nav graph는 building.yaml에 **lane(차선)** 이 있어야 나온다. 벽만 있으면 빈 그래프.
-> ⚠️ `pgm_to_gazebo` world ↔ 이 nav graph의 **좌표 정렬** 검증 필수 (docs/study-plan.md §5·6).
