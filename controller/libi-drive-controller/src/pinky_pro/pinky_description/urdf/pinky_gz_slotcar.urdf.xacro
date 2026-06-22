@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!-- pinky_gz_slotcar.urdf.xacro
+     pinky_gz.urdf.xacro(diff-drive)의 "slotcar 버전 짝꿍".
+     이미 설치된 RMF slotcar 플러그인(libslotcar.so, apt: rmf_robot_sim_gz_plugins)을
+     pinky 몸체에 장착하는 매크로. RMF가 navgraph 차선을 따라 로봇을 직접 구동(M2~M4, nav2 없음).
+
+     diff-drive와 slotcar는 둘 다 모델 본체를 움직이므로 공존 불가 → 이 파일은 drive:=slotcar 일 때만 포함된다.
+     로봇 이름 = Gazebo 모델 이름(spawn 시 -name). fleet 이름은 fleet adapter config(M2 step3)가 부여.
+     토픽: /robot_path_requests(구독, PathRequest) → 따라감, /robot_state(발행, 상태) — slotcar가 직접 rclcpp 사용(브리지 불필요).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- namespace: insert_gz_sim과 호출부 대칭을 위해 받지만 slotcar 토픽은 전역이라 미사용 -->
+    <xacro:macro name="insert_gz_slotcar" params="namespace">
+        <gazebo>
+            <plugin name="slotcar" filename="libslotcar.so">
+
+                <!-- 운동 파라미터 (TinyRobot 기본값 — 동작 확인 후 튜닝) -->
+                <nominal_drive_speed>0.5</nominal_drive_speed>
+                <nominal_drive_acceleration>0.25</nominal_drive_acceleration>
+                <max_drive_acceleration>0.75</max_drive_acceleration>
+
+                <nominal_turn_speed>0.6</nominal_turn_speed>
+                <nominal_turn_acceleration>1.5</nominal_turn_acceleration>
+                <max_turn_acceleration>2.0</max_turn_acceleration>
+
+                <!-- 기하 — pinky 실측 (diff-drive: wheel_radius=0.028, wheel_separation=0.0961) -->
+                <tire_radius>0.028</tire_radius>
+                <base_width>0.0961</base_width>
+
+                <stop_distance>0.75</stop_distance>
+                <stop_radius>0.75</stop_radius>
+
+                <reversible>true</reversible>
+
+                <!-- 배터리 (TinyRobot 기본값) -->
+                <nominal_voltage>12.0</nominal_voltage>
+                <nominal_capacity>24.0</nominal_capacity>
+                <charging_current>5.0</charging_current>
+
+                <!-- 물리 — pinky는 소형이라 질량만 낮춤 (나머지 기본값) -->
+                <mass>2.0</mass>
+                <inertia>10.0</inertia>
+                <friction_coefficient>0.22</friction_coefficient>
+
+                <nominal_power>20.0</nominal_power>
+
+            </plugin>
+        </gazebo>
+    </xacro:macro>
+</robot>

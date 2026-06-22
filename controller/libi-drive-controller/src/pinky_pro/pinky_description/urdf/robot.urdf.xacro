@@ -6,9 +6,11 @@
     <xacro:arg name="is_sim" default="false"/>
     <xacro:arg name="cam_tilt_deg" default="8"/>
     <xacro:arg name="screen_tilt_deg" default="-25"/>
+    <xacro:arg name="drive" default="diffdrive"/>   <!-- diffdrive(기존) | slotcar(RMF 직접구동, M2~) -->
 
     <xacro:insert_robot namespace="$(arg namespace)"
                         is_sim="$(arg is_sim)"
                         cam_tilt_deg="$(arg cam_tilt_deg)"
-                        screen_tilt_deg="$(arg screen_tilt_deg)"/>
+                        screen_tilt_deg="$(arg screen_tilt_deg)"
+                        drive="$(arg drive)"/>
 </robot>

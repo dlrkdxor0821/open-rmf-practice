@@ -62,7 +62,7 @@ ABA 전체 아키텍처는 [`aba-architecture.md`](./aba-architecture.md) 참고
 | ROS 2 | **Jazzy** ✅ |
 | RMF 코어 | `rmf_fleet_adapter`, `rmf_traffic`, `rmf_traffic_editor` 등 설치됨 ✅ |
 | Gazebo | **modern `gz sim`** (Harmonic) ✅ |
-| `rmf_demos` | 미설치 — apt 바이너리 없음 → **소스 빌드 필요** (jazzy 브랜치). `open-rmf-test/README` 절차 참고 |
+| `rmf_demos` | **소스 빌드 완료** (jazzy) — `~/open-rmf-test/rmf_ws` 에 있음. `source ~/open-rmf-test/rmf_ws/install/setup.bash` 후 `ros2 launch rmf_demos_gz office.launch.xml`. slotcar 플러그인(`libslotcar.so`)은 apt로 시스템 설치됨 → 추가 빌드 불필요 (2026-06-22 확인) |
 | **nav2** | **미설치** — M5 진입 전 설치 필요 |
 
 ---
@@ -173,7 +173,10 @@ SLAM ──> map.pgm + map.yaml ──┬─> pgm_to_gazebo ──> world.sdf   
 
 - [x] **M1 완료** (2026-06-22): 기존 pgm(B) → world(pgm_to_gazebo) + building.yaml→navgraph + **대응점 보정**(`scripts/rmf/`, RMS≈1cm) + rviz 시각화 검증
 - [ ] 각 `libi_rmf_*` 패키지의 빌드 파일(`package.xml`/`CMakeLists.txt`/`setup.py`) 채우기 (M2에서 navgraph 빌드 연동 포함)
-- [ ] `rmf_demos` 소스 빌드 (slotcar 에셋/런치 참고용) — `open-rmf-test/README` 절차
-- [ ] **M2 착수**: pinky URDF를 slotcar로 1대 등장 (RMF 직접 구동)
+- [x] **`rmf_demos` 소스 빌드 확인 완료** (2026-06-22): `~/open-rmf-test/rmf_ws` 에 jazzy 빌드 존재 + slotcar 플러그인 apt 설치본 사용. office 데모 = slotcar 패턴 1순위 참고 (`TinyRobot/model.sdf`)
+- [x] **M2-2 pinky→slotcar 전환 + 수동 주행 검증 완료** (2026-06-22): `drive` 스위치(diffdrive↔slotcar)로 pinky에 slotcar 플러그인 장착. headless e2e에서 PathRequest 1발로 pinky가 navgraph 정점 (0.43,9.87)→(0.43,11.11) **1.23m 실주행 확인**.
+  - 신규/수정: `pinky_gz_slotcar.urdf.xacro`(slotcar 매크로) · `pinky.urdf.xacro`/`robot.urdf.xacro`(drive 분기) · `upload_robot.launch.py`(robot_description `ParameterValue(str)` fix — 주석 `: ` 가 YAML 파싱 깨던 버그) · `launch_sim.launch.xml`(drive 인자+slotcar 플러그인 경로) · `scripts/rmf/slotcar_drive.py`(PathRequest 발행 검증툴).
+  - ⚠️ **함정 발견**: slotcar는 RMF 0으로 못 돈다 — **`building_map_server` 필요**(building.yaml로 level 인식, 없으면 `/robot_state` 미발행). 즉 "수동 주행"도 `building_map_server`(RMF 코어의 작은 조각)는 떠 있어야 함. fleet adapter(step3)보다 가벼운 최소 인프라.
+- [ ] **M2 남은 일**: ① 각 `libi_rmf_*` 빌드파일 채우기 ② `libi_rmf_fleet_adapter`(rmf_demos_fleet_adapter Python 정독 후) ③ `libi_rmf_bringup` sim.launch (gz+building_map_server+adapter+navgraph 조립; slotcar GUI 브링업 포함)
 
 > 진행 순서 원칙(노트 6장): **시뮬 1대(같은 도메인) → 다중(교통검증) → 태스크/팔 → 그제서야 nav2(M5)**. 한 번에 한 변수만.

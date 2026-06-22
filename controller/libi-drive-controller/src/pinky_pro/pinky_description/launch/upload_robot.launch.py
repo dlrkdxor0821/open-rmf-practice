@@ -5,6 +5,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, Shutdown
 from launch.substitutions import LaunchConfiguration, Command, TextSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 from launch.substitutions import PathJoinSubstitution, PythonExpression
 
@@ -14,6 +15,7 @@ def generate_launch_description():
     namespace_arg = DeclareLaunchArgument("namespace", default_value="")
     is_sim = DeclareLaunchArgument("is_sim", default_value="false")
     cam_tilt_deg = DeclareLaunchArgument("cam_tilt_deg", default_value="0")
+    drive = DeclareLaunchArgument("drive", default_value="diffdrive")  # diffdrive | slotcar
 
     namespace = PythonExpression([
         "'", LaunchConfiguration('namespace'), "' + ('/' if '", LaunchConfiguration('namespace'), "' != '' else '')"
@@ -27,7 +29,9 @@ def generate_launch_description():
         parameters=[{
             'ignore_timestamp': False,
             "use_sim_time": LaunchConfiguration('is_sim'),
-            'robot_description':
+            # ParameterValue(value_type=str): robot_description를 문자열로 못박는다.
+            # 안 그러면 launch가 거대 URDF를 YAML로 파싱하다 주석 안 ": " 같은 패턴에서 깨짐.
+            'robot_description': ParameterValue(
                 Command([
                     'xacro ',
                     PathJoinSubstitution([
@@ -36,8 +40,9 @@ def generate_launch_description():
                     ]),
                     ' namespace:=', namespace,
                     ' is_sim:=', LaunchConfiguration('is_sim'),
-                    ' cam_tilt_deg:=', LaunchConfiguration('cam_tilt_deg')
-                ]),
+                    ' cam_tilt_deg:=', LaunchConfiguration('cam_tilt_deg'),
+                    ' drive:=', LaunchConfiguration('drive')
+                ]), value_type=str),
             'frame_prefix': [namespace],
         }]
     )
@@ -61,6 +66,7 @@ def generate_launch_description():
     ld.add_action(namespace_arg)
     ld.add_action(is_sim)
     ld.add_action(cam_tilt_deg)
+    ld.add_action(drive)
     ld.add_action(rsp_node)
     ld.add_action(jsp_node)
 
