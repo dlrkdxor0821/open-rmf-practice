@@ -177,6 +177,11 @@ SLAM ──> map.pgm + map.yaml ──┬─> pgm_to_gazebo ──> world.sdf   
 - [x] **M2-2 pinky→slotcar 전환 + 수동 주행 검증 완료** (2026-06-22): `drive` 스위치(diffdrive↔slotcar)로 pinky에 slotcar 플러그인 장착. headless e2e에서 PathRequest 1발로 pinky가 navgraph 정점 (0.43,9.87)→(0.43,11.11) **1.23m 실주행 확인**.
   - 신규/수정: `pinky_gz_slotcar.urdf.xacro`(slotcar 매크로) · `pinky.urdf.xacro`/`robot.urdf.xacro`(drive 분기) · `upload_robot.launch.py`(robot_description `ParameterValue(str)` fix — 주석 `: ` 가 YAML 파싱 깨던 버그) · `launch_sim.launch.xml`(drive 인자+slotcar 플러그인 경로) · `scripts/rmf/slotcar_drive.py`(PathRequest 발행 검증툴).
   - ⚠️ **함정 발견**: slotcar는 RMF 0으로 못 돈다 — **`building_map_server` 필요**(building.yaml로 level 인식, 없으면 `/robot_state` 미발행). 즉 "수동 주행"도 `building_map_server`(RMF 코어의 작은 조각)는 떠 있어야 함. fleet adapter(step3)보다 가벼운 최소 인프라.
-- [ ] **M2 남은 일**: ① 각 `libi_rmf_*` 빌드파일 채우기 ② `libi_rmf_fleet_adapter`(rmf_demos_fleet_adapter Python 정독 후) ③ `libi_rmf_bringup` sim.launch (gz+building_map_server+adapter+navgraph 조립; slotcar GUI 브링업 포함)
+- [~] **M2-3 fleet adapter — 코드 정독 완료, 포팅 시작 전** (2026-06-23): `rmf_demos_fleet_adapter` 파이썬 3종 정독 (`~/open-rmf-test/rmf_ws/src/rmf_demos/rmf_demos_fleet_adapter/rmf_demos_fleet_adapter/`).
+  - **구조 이해 = 3겹**: ① `fleet_adapter.py`(RMF 쪽 — `add_easy_fleet`=EasyFullControl 파이썬판, 콜백 navigate/stop/execute_action, `update_robot`이 로봇상태 폴링→RMF 주입) ② `RobotClientAPI.py`(HTTP 클라이언트=다리, **M5에서 갈아끼우는 경계선**) ③ `fleet_manager.py`(FastAPI 서버+ROS노드 — `/robot_state` 구독, `/navigate`→`PathRequest`를 `/robot_path_requests`에 발행).
+  - **★아하**: ③ `fleet_manager.py`의 `/navigate`가 곧 우리가 M2-2에서 손으로 한 `slotcar_drive.py`(PathRequest 발행)의 자동화판. 즉 어댑터 = 그 위에 [RMF task→navigate 콜백→HTTP→PathRequest→slotcar 주행→cmd_id 매칭으로 도착감지→`execution.finished()`] 한 바퀴를 얹은 것.
+  - **포팅 시 바뀌는 것 2개뿐**: ⓐ `config.yaml`(fleet명 `libi`, 로봇 `pinky`, footprint/limits를 slotcar 파라미터 base_width 0.0961·nominal_drive_speed 0.5에 맞춤) ⓑ `nav_graph`=**M1 보정 navgraph**(안 쓰면 좌표 어긋나 RMF 계획 깨짐). 코드 3파일은 slotcar 백엔드가 이미 있어 거의 복붙+정리.
+  - **다음 작업 순서 = B → A** (사용자 합의): **B)** `tinyRobot_config.yaml`(`~/.../config/office/`) 한 줄씩 뜯어 우리 `libi_fleet_config.yaml` 설계 먼저 → **A)** `libi_rmf_fleet_adapter` 패키지 포팅(3파일+config+setup.py). M5에서 ②③만 nav2로 교체.
+- [ ] **M2 남은 일**: ① 각 `libi_rmf_*` 빌드파일 채우기 ② `libi_rmf_fleet_adapter`(위 B→A) ③ `libi_rmf_bringup` sim.launch (gz+building_map_server+adapter+navgraph 조립; slotcar GUI 브링업 포함)
 
 > 진행 순서 원칙(노트 6장): **시뮬 1대(같은 도메인) → 다중(교통검증) → 태스크/팔 → 그제서야 nav2(M5)**. 한 번에 한 변수만.
