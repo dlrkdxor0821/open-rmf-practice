@@ -29,6 +29,24 @@ MAP="$MAP_DIR/new_map.yaml"
 NAVGRAPH="$MAP_DIR/new_map.navgraph.yaml"
 WORLD="new_map.sdf"
 
+# 로봇 구동 모드 토글:  diffdrive(기본, cmd_vel 주행) | slotcar(RMF 직접 구동)
+#   사용:  MODE=slotcar scripts/libi_sim.sh     (M5 nav2 갈 땐 다시 diffdrive)
+MODE="${MODE:-diffdrive}"
+if [[ "$MODE" == "slotcar" ]]; then
+  DESC_FILE="urdf/pinky_slotcar.urdf.xacro"
+  ROBOT_NAME="pinky1"                  # config robots.pinky1 과 매칭
+  SPAWN_X="-3.8755598845584585"        # pinky1_charger world 좌표 (navgraph 보정값)
+  SPAWN_Y="11.209431044558912"
+  GZ_SLOTCAR_PLUGIN="/opt/ros/jazzy/lib/rmf_robot_sim_gz_plugins"   # libslotcar.so 경로
+elif [[ "$MODE" == "diffdrive" ]]; then
+  DESC_FILE="urdf/robot.urdf.xacro"
+  ROBOT_NAME="pinky"
+  SPAWN_X="0.0"; SPAWN_Y="0.0"
+  GZ_SLOTCAR_PLUGIN=""
+else
+  echo "[libi_sim] 알 수 없는 MODE='$MODE' (diffdrive|slotcar 중 하나)" >&2; exit 2
+fi
+
 # down 에서 정리할 잔여 프로세스 패턴.
 # gz sim 의 server/gui 자식은 tmux SIGHUP 으로 회수되지 않아 명시 정리한다.
 # (스크립트로 실행되므로 부모 argv 에 패턴 문자열이 없어 자기-매칭 위험 없음)
@@ -80,8 +98,12 @@ case "$ACTION" in
     # tmux 3.4 의 idle 세션 즉시종료 회피: sleep 으로 먼저 띄우고 remain-on-exit 설정 후 respawn.
     tmux new-session -d -s "$SESSION" -x 220 -y 50 -n gazebo -c "$REPO_ROOT" "sleep infinity"
     tmux set-option -t "$SESSION" -g remain-on-exit on
+    GZ_EXPORT=""
+    if [[ -n "$GZ_SLOTCAR_PLUGIN" ]]; then
+      GZ_EXPORT="export GZ_SIM_SYSTEM_PLUGIN_PATH=\"$GZ_SLOTCAR_PLUGIN:\${GZ_SIM_SYSTEM_PLUGIN_PATH:-}\" && "
+    fi
     tmux respawn-pane -k -t "$SESSION:gazebo" -c "$REPO_ROOT" \
-      "$SOURCE_ENV && exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD"
+      "$SOURCE_ENV && ${GZ_EXPORT}exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD description_file:=$DESC_FILE robot_name:=$ROBOT_NAME spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y"
 
     # window 1: rviz (map + navgraph + RobotModel)
     tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
@@ -95,7 +117,7 @@ case "$ACTION" in
     tmux set-option -t "$SESSION" -g window-status-current-format ' #I:#W '
 
     tmux select-window -t "$SESSION:gazebo"
-    echo "[libi_sim] 시작 — 창(탭): 0:gazebo | 1:rviz.  전환 Ctrl-b n/p, detach Ctrl-b d, 종료 $0 down"
+    echo "[libi_sim] 시작 (MODE=$MODE, robot=$ROBOT_NAME) — 창(탭): 0:gazebo | 1:rviz.  전환 Ctrl-b n/p, detach Ctrl-b d, 종료 $0 down"
     exec tmux attach -t "$SESSION"
     ;;
 

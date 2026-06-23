@@ -60,7 +60,7 @@ levels:
     vertices:
     - - -3.8755598845584585
       - 11.209431044558912
-      - {name: ''}
+      - {is_charger: true, is_holding_point: true, is_parking_spot: true, name: pinky1_charger}
     - - 0.4327682330645093
       - 11.107928219478506
       - {name: ''}

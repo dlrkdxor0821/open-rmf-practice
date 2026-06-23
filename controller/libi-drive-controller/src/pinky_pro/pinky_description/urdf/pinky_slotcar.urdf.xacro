@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!-- pinky_slotcar.urdf.xacro
+     pinky 의 slotcar 변형 top-level (robot.urdf.xacro 의 slotcar 판).
+       - insert_robot 을 is_sim=false 로 호출 → diff-drive gz 블록/센서를 넣지 않음 (cmd_vel 미사용)
+       - 대신 insert_gz_slotcar 로 RMF slotcar 플러그인을 끼움
+       - links/joints/meshes 는 pinky 그대로 재사용 (외형 유지)
+     사용: xacro pinky_slotcar.urdf.xacro  → robot_description 으로 gz 에 spawn (모델명 pinky1) -->
+<robot xmlns:xacro="http://ros.org/wiki/xacro" name="pinky">
+    <xacro:include filename="$(find pinky_description)/urdf/pinky.urdf.xacro"/>
+    <xacro:include filename="$(find pinky_description)/urdf/pinky_gz_slotcar.urdf.xacro"/>
+
+    <xacro:arg name="namespace" default=""/>
+    <xacro:arg name="cam_tilt_deg" default="8"/>
+    <xacro:arg name="screen_tilt_deg" default="-25"/>
+    <!-- is_sim: upload_robot.launch.py 가 넘겨주므로 받기만 함 (slotcar 변형은 항상 slotcar, 값 무시) -->
+    <xacro:arg name="is_sim" default="false"/>
+
+    <!-- is_sim=false: diff-drive gz 플러그인을 넣지 않음 (slotcar 로 대체) -->
+    <xacro:insert_robot namespace="$(arg namespace)"
+                        is_sim="false"
+                        cam_tilt_deg="$(arg cam_tilt_deg)"
+                        screen_tilt_deg="$(arg screen_tilt_deg)"/>
+
+    <xacro:insert_gz_slotcar namespace="$(arg namespace)"/>
+</robot>

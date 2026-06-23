@@ -7,7 +7,11 @@
     <arg name="world_name" default="pinky_factory.world"/>
     <arg name="world" default="$(find-pkg-share pinky_gz_sim)/worlds/$(var world_name)"/>
     <arg name="bridge_params" default="$(find-pkg-share pinky_gz_sim)/params/pinky_bridge.yaml"/>
-    
+    <!-- 로봇 모델/spawn (libi_sim.sh 의 MODE 토글이 채움): diff-drive(기본) | slotcar -->
+    <arg name="description_file" default="urdf/robot.urdf.xacro"/>
+    <arg name="spawn_x" default="0.0"/>
+    <arg name="spawn_y" default="0.0"/>
+
     <set_env name="GZ_SIM_RESOURCE_PATH" value="$(find-pkg-share pinky_description)/../:/$(find-pkg-share pinky_gz_sim)/models:/$(env HOME)/.gazebo/models"/>
 
     <include file="$(find-pkg-share ros_gz_sim)/launch/gz_sim.launch.py">
@@ -24,9 +28,10 @@
         <arg name='use_sim_time' value='True'/>
         <arg name='is_sim' value='True'/>
         <arg name='cam_tilt_deg' value='$(var cam_tilt_deg)'/>
+        <arg name='description_file' value='$(var description_file)'/>
     </include>
 
-    <node pkg="ros_gz_sim" exec="create" name='create' output='screen' args="-name $(var robot_name) -topic $(var namespace)/robot_description -x 0.0 -y 0.0 -z 0.1">
+    <node pkg="ros_gz_sim" exec="create" name='create' output='screen' args="-name $(var robot_name) -topic $(var namespace)/robot_description -x $(var spawn_x) -y $(var spawn_y) -z 0.1">
         <param name='use_sim_time' value='True'/>
     </node>
 

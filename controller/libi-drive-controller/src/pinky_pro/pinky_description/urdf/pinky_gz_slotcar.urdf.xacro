@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!-- pinky_gz_slotcar.urdf.xacro
+     M2~M4 전용: RMF가 직접 구동하는 slotcar 변형용 gz 블록.
+     diff-drive(pinky_gz.urdf.xacro의 insert_gz_sim) "대신" 끼운다.
+       - slotcar 플러그인: /robot_path_requests 구독, /robot_state 발행 (cmd_vel 미사용)
+       - 파라미터는 libi_fleet_config.yaml 과 일치시킴 (같은 로봇의 두 표현 = sim 진실 vs RMF 믿음)
+     속도/배터리/질량 = config 와 동일. tire_radius/base_width 만 pinky 실측으로 바꿈. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="insert_gz_slotcar" params="namespace">
+        <gazebo>
+            <!-- RMF slotcar plugin (rmf_robot_sim_gz_plugins/libslotcar.so) -->
+            <plugin filename="libslotcar.so" name="slotcar">
+                <nominal_drive_speed>0.5</nominal_drive_speed>            <!-- = config limits.linear[0] -->
+                <nominal_drive_acceleration>0.25</nominal_drive_acceleration>
+                <max_drive_acceleration>0.75</max_drive_acceleration>     <!-- = config limits.linear[1] -->
+
+                <nominal_turn_speed>0.6</nominal_turn_speed>              <!-- = config limits.angular[0] -->
+                <nominal_turn_acceleration>1.5</nominal_turn_acceleration>
+                <max_turn_acceleration>2.0</max_turn_acceleration>        <!-- = config limits.angular[1] -->
+
+                <tire_radius>0.028</tire_radius>     <!-- pinky wheel_radius (diff-drive 값) -->
+                <base_width>0.0961</base_width>       <!-- pinky wheel_separation (diff-drive 값) -->
+
+                <stop_distance>0.3</stop_distance>   <!-- pinky 작음 → TinyRobot 0.75 보다 줄임 -->
+                <stop_radius>0.3</stop_radius>
+
+                <reversible>true</reversible>
+
+                <!-- 배터리/질량 = config 와 동일 (현재 placeholder, pinky 실스펙으로 튜닝 예정) -->
+                <nominal_voltage>12.0</nominal_voltage>
+                <nominal_capacity>24.0</nominal_capacity>
+                <charging_current>5.0</charging_current>
+                <mass>20.0</mass>
+                <inertia>10.0</inertia>
+                <friction_coefficient>0.22</friction_coefficient>
+                <nominal_power>20.0</nominal_power>
+            </plugin>
+
+            <!-- 바퀴 joint_states (RViz 바퀴 시각화용). slotcar 가 본체를 움직이고, 바퀴 회전은 시각용. -->
+            <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+                <topic>${namespace}joint_states</topic>
+                <joint_name>${namespace}l_wheel_joint</joint_name>
+                <joint_name>${namespace}r_wheel_joint</joint_name>
+            </plugin>
+        </gazebo>
+    </xacro:macro>
+</robot>
