@@ -1,0 +1,50 @@
+# libi_fleet_config.yaml ─ RMF FleetConfiguration (M2~)
+# tinyRobot_config.yaml(rmf_demos) → libi/pinky 이식.
+# 포맷: rmf_demos_fleet_adapter/config.yaml (reference_coordinates 포함 = EasyFullControl python판이 읽는 것)
+# 주의: battery/mechanical 값은 tinyRobot 데모값(=placeholder). pinky 실제 스펙으로 튜닝 예정.
+
+rmf_fleet:
+  name: "libi"
+  limits:
+    linear: [0.5, 0.75]      # [속도, 가속] — pinky 실제 max 1.0/2.0 의 보수적 절반 (limits ≤ 실제능력)
+    angular: [0.6, 2.0]      # [속도, 가속]
+  profile:                   # RMF traffic 충돌 계산용 원 (pinky는 tiny → tinyRobot 0.3보다 작게)
+    footprint: 0.12          # 반경 m
+    vicinity: 0.25           # 반경 m
+  reversible: True           # diff-drive pinky 후진 가능
+  battery_system:            # ↓ TODO: pinky 실제 스펙으로 튜닝 (현재 tinyRobot 데모값)
+    voltage: 12.0            # V
+    capacity: 24.0           # Ahr
+    charging_current: 5.0    # A
+  mechanical_system:
+    mass: 20.0               # kg
+    moment_of_inertia: 10.0  # kgm^2
+    friction_coefficient: 0.22
+  ambient_system:
+    power: 20.0              # W
+  tool_system:
+    power: 0.0               # W
+  recharge_threshold: 0.10   # 이 SOC 밑이면 task 배정 안 받음
+  recharge_soc: 1.0          # 충전 목표 SOC
+  publish_fleet_state: 10.0
+  account_for_battery_drain: True   # ★ task 배정에 배터리 반영 (켬). False면 RMF가 배터리 무시.
+  task_capabilities:         # RMF task 종류 (사다리: loop→M2~3, delivery→M4)
+    loop: True
+    delivery: False          # M4에 True
+    clean: False
+  actions: []                # M4에 팔 perform_action 추가 (예: ["pickup","dropoff"])
+  finishing_request: "charge"   # idle 시 충전소 복귀 [park, charge, nothing]
+  robots:
+    pinky1:
+      charger: "pinky1_charger"   # ← navgraph vertex 이름과 일치 (new_map.building.yaml에 명명함)
+
+fleet_manager:
+  ip: "127.0.0.1"
+  port: 7001
+  user: "some_user"
+  password: "some_password"
+  # RMF 좌표 ↔ 로봇 보고 좌표 변환. M1에서 navgraph를 Gazebo world에 정렬 →
+  # slotcar 좌표 = world 좌표 = RMF 좌표 → identity(항등). (M5 nav2/AMCL map프레임이면 진짜 변환이 됨)
+  reference_coordinates:
+    rmf:   [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
+    robot: [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
