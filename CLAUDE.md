@@ -20,7 +20,7 @@ Consequence: the M1~M4 ladder runs RMF with a **slotcar** robot model and **no n
 
 ## Build & run
 
-ROS 2 **Jazzy**, Gazebo **Harmonic** (`gz sim`). Note: **nav2 is not installed** (needed only at M5) and **rmf_demos is not installed** (needs a source build on the jazzy branch — see `~/open-rmf-test/README`).
+ROS 2 **Jazzy**, Gazebo **Harmonic** (`gz sim`). Note: **nav2 is not installed** (needed only at M5). **rmf_demos (jazzy) is already source-built** at `~/open-rmf-test/rmf_ws` — source `~/open-rmf-test/rmf_ws/install/setup.bash` then `ros2 launch rmf_demos_gz office.launch.xml` to run the reference demo; no rebuild needed. The **slotcar plugin is apt-installed** system-wide (`libslotcar.so` in `rmf_robot_sim_gz_plugins`), so M2 only needs to attach it in the pinky model SDF (see `TinyRobot/model.sdf`: `<plugin name="slotcar" filename="libslotcar.so">`) — not build anything.
 
 ```bash
 # 1) base ROS

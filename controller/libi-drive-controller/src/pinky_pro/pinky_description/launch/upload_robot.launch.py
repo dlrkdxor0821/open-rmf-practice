@@ -31,6 +31,8 @@ def generate_launch_description():
         parameters=[{
             'ignore_timestamp': False,
             "use_sim_time": LaunchConfiguration('is_sim'),
+            # ParameterValue(value_type=str): robot_description 를 문자열로 못박는다.
+            # 안 그러면 launch 가 거대 URDF 를 YAML 로 파싱하다 깨짐.
             'robot_description': ParameterValue(
                 Command([
                     'xacro ',

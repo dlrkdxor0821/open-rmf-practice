@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-    <xacro:macro name="insert_robot" params="namespace is_sim:=false cam_tilt_deg screen_tilt_deg">
+    <xacro:macro name="insert_robot" params="namespace is_sim:=false cam_tilt_deg screen_tilt_deg drive:=diffdrive">
         <xacro:include filename="$(find pinky_description)/urdf/common/insert_inertia.urdf.xacro"/>
 
         <link name="base_footprint"/>
@@ -296,8 +296,15 @@
         </joint>
 
         <xacro:if value="${is_sim}">
-            <xacro:include filename="$(find pinky_description)/urdf/pinky_gz.urdf.xacro"/>
-            <xacro:insert_gz_sim namespace="${namespace}"/>
+            <!-- 구동 방식 분기: slotcar(RMF 직접구동, M2~M4) vs diffdrive(cmd_vel, 기존·M5). 둘은 본체를 다 움직여 공존 불가 -->
+            <xacro:if value="${drive == 'slotcar'}">
+                <xacro:include filename="$(find pinky_description)/urdf/pinky_gz_slotcar.urdf.xacro"/>
+                <xacro:insert_gz_slotcar namespace="${namespace}"/>
+            </xacro:if>
+            <xacro:unless value="${drive == 'slotcar'}">
+                <xacro:include filename="$(find pinky_description)/urdf/pinky_gz.urdf.xacro"/>
+                <xacro:insert_gz_sim namespace="${namespace}"/>
+            </xacro:unless>
         </xacro:if>
     </xacro:macro>
 </robot>
