@@ -1,31 +1,32 @@
-# libi_rmf_fleet_adapter  ─ ② RMF ↔ 로봇 통역 ★핵심 (M2 → M5)
+# libi_rmf_fleet_adapter ─ ② RMF ↔ 로봇 통역 ★핵심 (M2~)
 
-- **빌드타입**: `ament_cmake` / **C++** (노트 4-2: EasyFullControl C++ = 원본) · **위치**: `fleet/src/libi_rmf_fleet_adapter`
+- **빌드타입**: `ament_python` / **Python** — open-rmf `rmf_demos_fleet_adapter`(EasyFullControl) **직역 포팅**.
+  C++ 정본화는 **실 프로젝트 때** (지금은 공부 목적 → Python이 그때 C++의 작동 명세가 됨).
 - **역할**: RMF의 이동 명령을 로봇이 알아듣는 형태로 통역. **이 연습의 핵심 학습 지점.**
 
-## 🎁 결정적 참고: 실제 pinky fleet adapter 예제
-`/home/asd/pinky_rmf/rmf_ws/src/rosconkr_rmf/rosconkr_pinky_fleet_adapter` (ROSCon KR) — **pinky + RMF** 실동작 어댑터.
-구조·EasyFullControl 사용법·nav2 연동을 거의 그대로 참고/이식할 수 있다. **M2~M5의 1순위 레퍼런스.**
-
-## 들어갈 것 (C++ 레이아웃)
+## 구성 (rmf_demos_fleet_adapter 직역 — 패키지명/config 경로만 변경)
 ```
-src/        fleet_adapter.cpp        ← EasyFullControl 메인
-            RobotClientAPI.cpp       ← 로봇 제어 추상 API (백엔드 교체 지점 ★)
-            nav2_robot_api.cpp       ← (M5) nav2 NavigateToPose 송신 + amcl_pose/tf 수신
-include/libi_rmf_fleet_adapter/      ← 헤더
-config/     libi_fleet_config.yaml   ← footprint 반경·최고속도·배터리 (RMF이 읽음)
-CMakeLists.txt / package.xml         ← (예정)
+libi_rmf_fleet_adapter/
+  fleet_adapter.py    ← ① EasyFullControl 메인. config+navgraph 읽어 add_easy_fleet, navigate/stop/action 콜백
+  RobotClientAPI.py   ← ② 로봇 API HTTP 다리 (백엔드 교체 지점 ★ — M5에 nav2로)
+  fleet_manager.py    ← ③ slotcar 백엔드. /robot_path_requests(PathRequest) 발행 + /robot_state 구독
+  manage_lane.py      ← 차선 open/close 헬퍼
+config/  libi_fleet_config.yaml   ← name/limits/footprint/battery/task_capabilities (RMF이 읽음)
+launch/  fleet_adapter.launch.xml ← fleet_manager + fleet_adapter 동시 실행 (config_file, nav_graph_file 인자)
+package.xml / setup.py            ← ament_python
 ```
+실행 노드: `fleet_adapter`, `fleet_manager`, `manage_lane`.
 
 ## slotcar(M2~M4) vs nav2(M5) — 백엔드만 바뀐다
 | | M2~M4 (slotcar) | M5 (실 nav2) |
 |---|---|---|
-| `RobotClientAPI` 백엔드 | **slotcar 토픽** 직접 구동 | **nav2 `NavigateToPose`** 액션 |
-| 위치 피드백 | 시뮬에서 직접 | `/amcl_pose`, `/tf` |
+| `RobotClientAPI`/`fleet_manager` 백엔드 | **slotcar 토픽** (PathRequest/robot_state) | **nav2 `NavigateToPose`** 액션 |
+| 위치 피드백 | slotcar `/robot_state` | `/amcl_pose`, `/tf` |
 | nav2 필요? | ❌ | ✅ |
 
-> scaffold는 그대로 유지되고, **`RobotClientAPI` 백엔드 하나만 교체**되는 게 M2→M5의 본질.
+> M2→M5의 본질 = **②③ 백엔드를 slotcar 토픽 → nav2로 교체.** ①(fleet_adapter)·config·navgraph는 재사용.
 
-## 📚 학습 팁
-- 개념은 **`rmf_demos_fleet_adapter`(Python)** + 위 **rosconkr 예제**를 먼저 읽고 돌려보면 빠르다.
-- ⚠️ M5 함정: action을 도메인 경계로 안 넘기려면 이 adapter를 **로봇 도메인 쪽에서 실행** (docs/study-plan.md §6, 노트 5장).
+## 참고
+- 원본: `rmf_demos_fleet_adapter` (open-rmf, Python EasyFullControl). 좌표/설정만 libi로 바꿔 직역.
+- 실 pinky+nav2 C++ 예제: rosconkr `rosconkr_pinky_fleet_adapter` (M5/C++ 정본화 때 1순위 참고).
+- ⚠️ M5 함정: action을 도메인 경계로 안 넘기려면 이 adapter를 로봇 도메인 쪽에서 실행 (docs/study-plan.md §6).
