@@ -38,7 +38,13 @@ amcl:
     z_short: 0.05
     scan_topic: scan
     set_initial_pose: true
-    initial_pose: [0, 0, 0]
+    # 시작 위치 = Gazebo 스폰(pinky1_charger)과 동일 → 켜자마자 charger에 자동 localize (2D Pose Estimate 불필요).
+    # libi_sim.sh MODE=nav2 의 SPAWN_X/SPAWN_Y 와 반드시 일치시킬 것. (리스트 [x,y,yaw] 형식은 amcl이 무시함 → 표준 x/y/z/yaw)
+    initial_pose:
+      x: -3.8755598845584585
+      y: 11.209431044558912
+      z: 0.0
+      yaw: 0.0
 
 bt_navigator:
   ros__parameters:

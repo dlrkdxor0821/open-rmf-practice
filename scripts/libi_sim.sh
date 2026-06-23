@@ -29,9 +29,11 @@ MAP="$MAP_DIR/new_map.yaml"
 NAVGRAPH="$MAP_DIR/new_map.navgraph.yaml"
 WORLD="new_map.sdf"
 
-# 로봇 구동 모드 토글:  diffdrive(기본, cmd_vel 주행) | slotcar(RMF 직접 구동)
-#   사용:  MODE=slotcar scripts/libi_sim.sh     (M5 nav2 갈 땐 다시 diffdrive)
+# 로봇 구동 모드 토글:
+#   diffdrive(기본, cmd_vel 주행) | slotcar(RMF 직접 구동, M2~4) | nav2(diffdrive+nav2 실주행, M5a)
+#   사용:  MODE=slotcar scripts/libi_sim.sh   /   MODE=nav2 scripts/libi_sim.sh
 MODE="${MODE:-diffdrive}"
+NAV2="false"                           # nav2 모드면 true → nav2 스택 창 + nav2 rviz (AMCL이 map→odom 담당)
 if [[ "$MODE" == "slotcar" ]]; then
   DESC_FILE="urdf/pinky_slotcar.urdf.xacro"
   ROBOT_NAME="pinky1"                  # config robots.pinky1 과 매칭
@@ -48,8 +50,18 @@ elif [[ "$MODE" == "diffdrive" ]]; then
   GZ_SLOTCAR_PLUGIN=""
   SLOTCAR_TF="false"
   SPAWN_ROBOT2="false"; ROBOT2_NAME="pinky2"; SPAWN2_X="0.0"; SPAWN2_Y="0.0"
+elif [[ "$MODE" == "nav2" ]]; then
+  # M5a: diffdrive pinky + nav2 실주행 (RMF 없음). nav2 AMCL이 map→odom 담당 → 정적 TF 안 씀.
+  DESC_FILE="urdf/robot.urdf.xacro"
+  ROBOT_NAME="pinky"
+  SPAWN_X="-3.8755598845584585"        # pinky1_charger(free 위치) — rviz 초기위치(2D Pose Estimate)도 여기로
+  SPAWN_Y="11.209431044558912"
+  GZ_SLOTCAR_PLUGIN=""
+  SLOTCAR_TF="false"
+  SPAWN_ROBOT2="false"; ROBOT2_NAME="pinky2"; SPAWN2_X="0.0"; SPAWN2_Y="0.0"
+  NAV2="true"
 else
-  echo "[libi_sim] 알 수 없는 MODE='$MODE' (diffdrive|slotcar 중 하나)" >&2; exit 2
+  echo "[libi_sim] 알 수 없는 MODE='$MODE' (diffdrive|slotcar|nav2 중 하나)" >&2; exit 2
 fi
 
 # down 에서 정리할 잔여 프로세스 패턴.
@@ -68,6 +80,8 @@ CLEANUP_PATTERNS=(
   "static_transform_publisher"
   "nav2_map_server"
   "lifecycle_manager"
+  "gz_bringup_launch"
+  "component_container_isolated"
 )
 
 command -v tmux >/dev/null || { echo "[libi_sim] tmux 미설치 (sudo apt install tmux)" >&2; exit 1; }
@@ -110,9 +124,23 @@ case "$ACTION" in
     tmux respawn-pane -k -t "$SESSION:gazebo" -c "$REPO_ROOT" \
       "$SOURCE_ENV && ${GZ_EXPORT}exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD description_file:=$DESC_FILE robot_name:=$ROBOT_NAME spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y spawn_robot2:=$SPAWN_ROBOT2 robot2_name:=$ROBOT2_NAME spawn2_x:=$SPAWN2_X spawn2_y:=$SPAWN2_Y"
 
-    # window 1: rviz (map + navgraph + RobotModel)
-    tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
-      "$SOURCE_ENV && exec ros2 launch $SCRIPT_DIR/rmf/sim_view.launch.py map:=$MAP navgraph:=$NAVGRAPH slotcar_tf:=$SLOTCAR_TF"
+    # window 1 (nav2 모드만): nav2 스택 — map_server+amcl+planner+controller (우리 library 맵)
+    if [[ "$NAV2" == "true" ]]; then
+      tmux new-window -t "$SESSION" -n nav2 -c "$REPO_ROOT" \
+        "$SOURCE_ENV && exec ros2 launch pinky_navigation gz_bringup_launch.xml map:=$MAP use_sim_time:=True"
+    fi
+
+    # window: rviz — nav2 모드면 nav2_view.rviz(코스트맵·경로·laser, map은 nav2 map_server, map→odom은 AMCL)
+    #                아니면 기존 sim_view(slotcar/diffdrive: navgraph + 정적 map→odom)
+    if [[ "$NAV2" == "true" ]]; then
+      NAV2_RVIZ="$REPO_ROOT/controller/libi-drive-controller/src/pinky_pro/pinky_navigation/rviz/nav2_view.rviz"
+      # show_navgraph(백그라운드)로 navgraph lane·vertex 마커(/navgraph_markers) 발행 → rviz Navgraph 디스플레이가 표시
+      tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
+        "$SOURCE_ENV && { python3 $SCRIPT_DIR/rmf/show_navgraph.py $NAVGRAPH & } && exec ros2 run rviz2 rviz2 -d $NAV2_RVIZ --ros-args -p use_sim_time:=true"
+    else
+      tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
+        "$SOURCE_ENV && exec ros2 launch $SCRIPT_DIR/rmf/sim_view.launch.py map:=$MAP navgraph:=$NAVGRAPH slotcar_tf:=$SLOTCAR_TF"
+    fi
 
     # 보기 편의: 마우스 + 상태바
     tmux set-option -t "$SESSION" -g mouse on
@@ -122,7 +150,8 @@ case "$ACTION" in
     tmux set-option -t "$SESSION" -g window-status-current-format ' #I:#W '
 
     tmux select-window -t "$SESSION:gazebo"
-    echo "[libi_sim] 시작 (MODE=$MODE, robot=$ROBOT_NAME) — 창(탭): 0:gazebo | 1:rviz.  전환 Ctrl-b n/p, detach Ctrl-b d, 종료 $0 down"
+    if [[ "$NAV2" == "true" ]]; then WINS="0:gazebo | 1:nav2 | 2:rviz"; else WINS="0:gazebo | 1:rviz"; fi
+    echo "[libi_sim] 시작 (MODE=$MODE, robot=$ROBOT_NAME) — 창(탭): $WINS.  전환 Ctrl-b n/p, detach Ctrl-b d, 종료 $0 down"
     exec tmux attach -t "$SESSION"
     ;;
 
