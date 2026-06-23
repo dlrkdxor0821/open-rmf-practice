@@ -1,0 +1,37 @@
+<?xml version='1.0' ?>
+<!-- libi_rmf.launch.xml — RMF 코어 + libi fleet adapter.
+     (gz + slotcar pinky 는 별도: MODE=slotcar scripts/libi_sim.sh)
+     rmf_demos common.launch 의 핵심 노드를 rmf_demos 의존 없이 직접 배선.
+     맵은 libi_rmf_maps 가 colcon 패키지가 아니라서 절대경로 인자로 받는다. -->
+<launch>
+  <arg name="use_sim_time" default="true"/>
+  <arg name="building_yaml" description="building.yaml (building_map_server용, 절대경로)"/>
+  <arg name="nav_graph_file" description="보정된 navgraph (fleet adapter용, 절대경로)"/>
+  <arg name="config_file" default="$(find-pkg-share libi_rmf_fleet_adapter)/config/libi_fleet_config.yaml"/>
+  <arg name="server_uri" default=""/>
+
+  <!-- ===== RMF core ===== -->
+  <node pkg="rmf_traffic_ros2" exec="rmf_traffic_schedule" output="both" name="rmf_traffic_schedule_primary">
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+  <node pkg="rmf_traffic_ros2" exec="rmf_traffic_blockade" output="both">
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+  <node pkg="rmf_building_map_tools" exec="building_map_server" args="$(var building_yaml)">
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+  <node pkg="rmf_task_ros2" exec="rmf_task_dispatcher" output="screen">
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+    <param name="bidding_time_window" value="2.0"/>
+    <param name="use_unique_hex_string_with_task_id" value="true"/>
+    <param name="server_uri" value="$(var server_uri)"/>
+  </node>
+
+  <!-- ===== libi fleet adapter (fleet_manager + fleet_adapter) ===== -->
+  <include file="$(find-pkg-share libi_rmf_fleet_adapter)/launch/fleet_adapter.launch.xml">
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    <arg name="config_file" value="$(var config_file)"/>
+    <arg name="nav_graph_file" value="$(var nav_graph_file)"/>
+    <arg name="server_uri" value="$(var server_uri)"/>
+  </include>
+</launch>

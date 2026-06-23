@@ -38,11 +38,13 @@ if [[ "$MODE" == "slotcar" ]]; then
   SPAWN_X="-3.8755598845584585"        # pinky1_charger world 좌표 (navgraph 보정값)
   SPAWN_Y="11.209431044558912"
   GZ_SLOTCAR_PLUGIN="/opt/ros/jazzy/lib/rmf_robot_sim_gz_plugins"   # libslotcar.so 경로
+  SLOTCAR_TF="true"                    # RViz robot TF 를 /robot_state 에서 발행 (slotcar엔 odom→base 없음)
 elif [[ "$MODE" == "diffdrive" ]]; then
   DESC_FILE="urdf/robot.urdf.xacro"
   ROBOT_NAME="pinky"
   SPAWN_X="0.0"; SPAWN_Y="0.0"
   GZ_SLOTCAR_PLUGIN=""
+  SLOTCAR_TF="false"
 else
   echo "[libi_sim] 알 수 없는 MODE='$MODE' (diffdrive|slotcar 중 하나)" >&2; exit 2
 fi
@@ -107,7 +109,7 @@ case "$ACTION" in
 
     # window 1: rviz (map + navgraph + RobotModel)
     tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
-      "$SOURCE_ENV && exec ros2 launch $SCRIPT_DIR/rmf/sim_view.launch.py map:=$MAP navgraph:=$NAVGRAPH"
+      "$SOURCE_ENV && exec ros2 launch $SCRIPT_DIR/rmf/sim_view.launch.py map:=$MAP navgraph:=$NAVGRAPH slotcar_tf:=$SLOTCAR_TF"
 
     # 보기 편의: 마우스 + 상태바
     tmux set-option -t "$SESSION" -g mouse on

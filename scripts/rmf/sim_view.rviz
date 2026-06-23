@@ -21,7 +21,7 @@ Visualization Manager:
       Name: Map
       Enabled: true
       Topic:
-        Value: /map
+        Value: /floorplan_map
         Depth: 5
         Durability Policy: Transient Local
         History Policy: Keep Last
