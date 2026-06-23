@@ -11,7 +11,7 @@ rmf_fleet:
   profile:                   # RMF traffic 충돌 계산용 원 (pinky는 tiny → tinyRobot 0.3보다 작게)
     footprint: 0.12          # 반경 m
     vicinity: 0.25           # 반경 m
-  reversible: True           # diff-drive pinky 후진 가능
+  reversible: False          # 후진 금지 — 뒤로 갈 땐 제자리 회전(180° 등) 후 전진 (차동구동)
   battery_system:            # ↓ TODO: pinky 실제 스펙으로 튜닝 (현재 tinyRobot 데모값)
     voltage: 12.0            # V
     capacity: 24.0           # Ahr
@@ -37,6 +37,8 @@ rmf_fleet:
   robots:
     pinky1:
       charger: "pinky1_charger"   # ← navgraph vertex 이름과 일치 (new_map.building.yaml에 명명함)
+    pinky2:
+      charger: "pinky2_charger"   # M3: 2번째 로봇 (traffic negotiation 용, 반대편 끝에서 출발)
 
 fleet_manager:
   ip: "127.0.0.1"

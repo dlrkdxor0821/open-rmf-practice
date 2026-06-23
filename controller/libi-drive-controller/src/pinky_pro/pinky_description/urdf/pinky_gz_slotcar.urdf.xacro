@@ -24,7 +24,8 @@
                 <stop_distance>0.3</stop_distance>   <!-- pinky 작음 → TinyRobot 0.75 보다 줄임 -->
                 <stop_radius>0.3</stop_radius>
 
-                <reversible>true</reversible>
+                <reversible>false</reversible>   <!-- 후진 금지: 목표 방향으로 회전 후 전진 -->
+
 
                 <!-- 배터리/질량 = config 와 동일 (현재 placeholder, pinky 실스펙으로 튜닝 예정) -->
                 <nominal_voltage>12.0</nominal_voltage>

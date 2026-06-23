@@ -81,7 +81,7 @@ levels:
       - {name: ''}
     - - 0.4806939814335536
       - 3.2057862768098264
-      - {name: ''}
+      - {is_charger: true, is_holding_point: true, is_parking_spot: true, name: pinky2_charger}
     - - 0.521598044577134
       - 0.10925835059793698
       - {name: point_b}

@@ -39,12 +39,15 @@ if [[ "$MODE" == "slotcar" ]]; then
   SPAWN_Y="11.209431044558912"
   GZ_SLOTCAR_PLUGIN="/opt/ros/jazzy/lib/rmf_robot_sim_gz_plugins"   # libslotcar.so 경로
   SLOTCAR_TF="true"                    # RViz robot TF 를 /robot_state 에서 발행 (slotcar엔 odom→base 없음)
+  SPAWN_ROBOT2="true"; ROBOT2_NAME="pinky2"   # M3: 2번째 로봇 (traffic negotiation)
+  SPAWN2_X="0.4807"; SPAWN2_Y="3.2058"        # pinky2_charger world 좌표 (반대편 끝)
 elif [[ "$MODE" == "diffdrive" ]]; then
   DESC_FILE="urdf/robot.urdf.xacro"
   ROBOT_NAME="pinky"
   SPAWN_X="0.0"; SPAWN_Y="0.0"
   GZ_SLOTCAR_PLUGIN=""
   SLOTCAR_TF="false"
+  SPAWN_ROBOT2="false"; ROBOT2_NAME="pinky2"; SPAWN2_X="0.0"; SPAWN2_Y="0.0"
 else
   echo "[libi_sim] 알 수 없는 MODE='$MODE' (diffdrive|slotcar 중 하나)" >&2; exit 2
 fi
@@ -105,7 +108,7 @@ case "$ACTION" in
       GZ_EXPORT="export GZ_SIM_SYSTEM_PLUGIN_PATH=\"$GZ_SLOTCAR_PLUGIN:\${GZ_SIM_SYSTEM_PLUGIN_PATH:-}\" && "
     fi
     tmux respawn-pane -k -t "$SESSION:gazebo" -c "$REPO_ROOT" \
-      "$SOURCE_ENV && ${GZ_EXPORT}exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD description_file:=$DESC_FILE robot_name:=$ROBOT_NAME spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y"
+      "$SOURCE_ENV && ${GZ_EXPORT}exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD description_file:=$DESC_FILE robot_name:=$ROBOT_NAME spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y spawn_robot2:=$SPAWN_ROBOT2 robot2_name:=$ROBOT2_NAME spawn2_x:=$SPAWN2_X spawn2_y:=$SPAWN2_Y"
 
     # window 1: rviz (map + navgraph + RobotModel)
     tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
