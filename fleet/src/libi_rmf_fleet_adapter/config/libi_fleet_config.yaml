@@ -32,7 +32,7 @@ rmf_fleet:
     loop: True
     delivery: False          # M4에 True
     clean: False
-  actions: []                # M4에 팔 perform_action 추가 (예: ["pickup","dropoff"])
+  actions: ["pickup", "dropoff"]   # M4: 팔 perform_action (slotcar 단계는 mock, 실물은 MoveIt)
   finishing_request: "charge"   # idle 시 충전소 복귀 [park, charge, nothing]
   robots:
     pinky1:

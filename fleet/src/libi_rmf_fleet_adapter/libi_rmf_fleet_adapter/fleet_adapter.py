@@ -275,6 +275,10 @@ class RobotAdapter:
                 self.attempt_cmd_until_success(
                     cmd=self.perform_clean, args=(description['zone'],)
                 )
+            case 'pickup' | 'dropoff':
+                # M4: 팔 perform_action. slotcar 단계라 실제 팔이 없으니 mock(로그+딜레이 후 finished).
+                # 실물/M5: 여기서 팔(MoveIt) 동작 명령 → 완료 콜백에서 finished 로 교체.
+                self.perform_arm_action(category, description)
 
     def finish_action(self):
         # This is triggered by a ModeRequest callback which allows human
@@ -331,6 +335,24 @@ class RobotAdapter:
                 self.execution.finished()
                 self.execution = None
                 return True
+
+    def perform_arm_action(self, category, description):
+        # 팔 perform_action (M4). slotcar 단계는 실제 팔이 없어 mock — 로그 + 딜레이 후 finished().
+        # description: dispatch 가 넘긴 dict (예: {'label': 'book_42'} ). 실물/M5 엔 MoveIt 명령에 사용.
+        label = description.get('label', '') if isinstance(description, dict) else str(description)
+        mock_sec = 3.0
+        self.node.get_logger().info(
+            f'[{self.name}] 🦾 팔 동작 시작: {category} {label} (mock {mock_sec}s)'
+        )
+
+        def run():
+            time.sleep(mock_sec)   # ← 실물/M5: MoveIt 팔 동작 명령 + 완료 대기로 교체
+            self.node.get_logger().info(f'[{self.name}] 🦾 팔 동작 완료: {category}')
+            if self.execution is not None:
+                self.execution.finished()
+                self.execution = None
+
+        threading.Thread(target=run, daemon=True).start()
 
     def attempt_cmd_until_success(self, cmd, args):
         self.cancel_cmd_attempt()

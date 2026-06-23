@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Open-RMF 패키지 역할 정리 (rmf_demos vs libi)</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans CJK KR', 'Noto Sans CJK HK', 'Noto Sans KR', sans-serif;
+    color: #1a1a1a; font-size: 10.5px; line-height: 1.5; margin: 0;
+  }
+  h1 { font-size: 19px; margin: 0 0 2px; color: #0b3d6b; }
+  .sub { color: #666; font-size: 10px; margin: 0 0 14px; }
+  h2 { font-size: 13.5px; margin: 18px 0 6px; padding: 5px 9px;
+       background: #0b3d6b; color: #fff; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
+  th, td { border: 1px solid #c8d2dc; padding: 5px 7px; vertical-align: top; text-align: left; }
+  th { background: #dceaf7; color: #0b3d6b; font-weight: 700; }
+  tr:nth-child(even) td { background: #f6f9fc; }
+  code { background: #eef2f6; padding: 0 3px; border-radius: 3px;
+         font-family: 'DejaVu Sans Mono', monospace; font-size: 9.5px; }
+  .pkg { font-weight: 700; color: #0b3d6b; white-space: nowrap; }
+  .bt { white-space: nowrap; color: #555; font-size: 9.5px; }
+  .ok { color: #1a7a3a; font-weight: 700; }
+  .warn { color: #b5440a; font-weight: 700; }
+  .note { background: #fff7e6; border-left: 4px solid #e0a72e; padding: 7px 10px;
+          margin: 8px 0; border-radius: 3px; font-size: 10px; }
+  .key { background: #eef7f0; border-left: 4px solid #1a7a3a; padding: 8px 11px;
+         margin: 10px 0 4px; border-radius: 3px; }
+  .map { color: #1a7a3a; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<h1>Open-RMF 패키지 역할 정리 — rmf_demos vs libi</h1>
+<p class="sub">ABA(도서관 책 배달 매니퓰레이터) Open-RMF 학습 repo · 2026-06-23</p>
+
+<h2>1. rmf_demos 패키지 (기본 레퍼런스 7개)</h2>
+<table>
+  <tr><th style="width:17%">패키지</th><th style="width:13%">빌드타입</th><th>역할 (상세)</th></tr>
+  <tr>
+    <td class="pkg">rmf_demos</td><td class="bt">ament_cmake</td>
+    <td><b>데모 전체를 묶는 launch 진입점.</b> <code>common.launch.xml</code> 하나가 RMF 코어를 통째로 켠다 —
+        rmf_traffic_schedule(일정DB)·rmf_traffic_blockade(좁은구간중재)·building_map_server(/map)·rmf_task_dispatcher(경매)·
+        visualization(rviz)·door/lift supervisor. 그 위에 <code>office.launch</code>·<code>hotel.launch</code> 등
+        <b>시나리오별 launch</b> + <code>tinyRobot_config.yaml</code> 같은 fleet config 보관.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_assets</td><td class="bt">ament_cmake</td>
+    <td><b>Gazebo 3D 모델·미디어.</b> TinyRobot·DeliveryRobot 모델 SDF(slotcar 플러그인 장착)·메시,
+        dispenser/ingestor(물건 주고받는 워크셀), 환경 오브젝트. RMF 데모가 gz에 띄우는 <b>시각/물리 자산 전부</b>.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_bridges</td><td class="bt">ament_python</td>
+    <td><b>RMF ↔ 외부 통신 스택 브리지.</b> <code>fleet_socketio_bridge</code>(웹 대시보드 ↔ RMF, socket.io),
+        <code>fleet_robotmanager_mqtt_bridge</code>(MQTT 로봇매니저 ↔ RMF). RMF 토픽을 <b>웹/IoT 프로토콜로 중계</b>.
+        <span class="warn">※ domain_bridge 아님!</span></td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_fleet_adapter</td><td class="bt">ament_python</td>
+    <td><b>EasyFullControl 어댑터(RMF↔로봇 통역).</b> <code>fleet_adapter.py</code>(RMF 등록·navigate/execute_action 콜백)·
+        <code>fleet_manager.py</code>(slotcar 백엔드, PathRequest 발행/robot_state 수신)·
+        <code>RobotClientAPI.py</code>(HTTP 다리). config+navgraph 읽어 add_easy_fleet.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_gz</td><td class="bt">ament_cmake</td>
+    <td><b>Gazebo(gz) 시뮬 launch.</b> gz world 띄우고 로봇 spawn, ros_gz bridge 연결.
+        코어(rmf_demos)와 sim(gz)을 결합하는 시나리오 launch(<code>office.launch.xml</code> 등).</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_maps</td><td class="bt">ament_cmake</td>
+    <td><b>데모 맵.</b> traffic_editor <code>building.yaml</code> + floorplan 이미지. 빌드 시
+        building_map_generator로 <b>world + navgraph(0.yaml)</b> 산출.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_tasks</td><td class="bt">ament_python</td>
+    <td><b>task 요청 CLI.</b> dispatch_patrol·loop·delivery·clean·action·go_to_place + cancel.
+        task JSON을 조립해 <code>ApiRequest</code>로 <code>task_api_requests</code>에 발행(submitter).</td>
+  </tr>
+</table>
+
+<h2>2. 우리 패키지 (libi_rmf_* · 5개)</h2>
+<table>
+  <tr><th style="width:16%">패키지</th><th style="width:12%">빌드타입</th><th>역할 (상세)</th>
+      <th style="width:18%">rmf_demos 대응</th></tr>
+  <tr>
+    <td class="pkg">libi_rmf_maps</td><td class="bt">ament_cmake</td>
+    <td>우리 맵 <code>new_map</code>(library). building.yaml→navgraph + <b>M1 좌표보정</b>(pgm월드↔traffic_editor navgraph
+        대응점 닮음변환). charger·point_a/b waypoint 명명.</td>
+    <td class="map">rmf_demos_maps ✓</td>
+  </tr>
+  <tr>
+    <td class="pkg">libi_rmf_fleet_adapter</td><td class="bt">ament_python</td>
+    <td><b>EasyFullControl 직역 포팅.</b> 4파일 그대로 + 패키지명/config만 libi로. slotcar 백엔드(M2~4) →
+        M5에 nav2로 백엔드만 교체. execute_action에 <b>pickup/dropoff 팔 동작</b>(M4) 추가.</td>
+    <td class="map">rmf_demos_fleet_adapter ✓</td>
+  </tr>
+  <tr>
+    <td class="pkg">libi_rmf_tasks</td><td class="bt">ament_python</td>
+    <td><code>dispatch_delivery.py</code> — <b>배달 compose task 조립·제출</b>
+        (go(shelf)→pickup→go(desk)→dropoff). 우리만의 task 정의가 사는 곳.</td>
+    <td class="map">rmf_demos_tasks ✓</td>
+  </tr>
+  <tr>
+    <td class="pkg">libi_rmf_bringup</td><td class="bt">ament_cmake</td>
+    <td><b>RMF 두뇌 조립 launch.</b> <code>libi_rmf.launch.xml</code> = 코어(schedule·blockade·building_map_server·dispatcher)
+        + 어댑터 include. <code>scripts/rmf.sh</code>가 띄움. M5엔 nav2·domain_bridge까지 여기 합쳐짐.</td>
+    <td class="map">rmf_demos(common.launch) ✓</td>
+  </tr>
+  <tr>
+    <td class="pkg">libi_rmf_bridge</td><td class="bt">ament_cmake</td>
+    <td><b>domain_bridge 설정(M5).</b> 실로봇이 각자 ROS 도메인에서 nav2 풀스택을 돌릴 때,
+        RMF에 필요한 토픽만 선택적으로 도메인 간 브리지. <b>M5에서만</b> 등장.</td>
+    <td class="warn">rmf_demos_bridges 아님 ⚠️</td>
+  </tr>
+</table>
+<div class="note">
+  <b>⚠️ 흔한 오해 — <code>libi_rmf_bridge</code> ≠ <code>rmf_demos_bridges</code>:</b><br>
+  · <b>rmf_demos_bridges</b> = RMF ↔ <b>웹/MQTT</b>(socketio·mqtt) 외부 통신 브리지<br>
+  · <b>libi_rmf_bridge</b> = <b>domain_bridge</b>(실로봇 각자 ROS 도메인 ↔ RMF, M5) — upstream의 별도 도구.
+    rmf_demos가 안 가진 거라 <b>우리가 새로 둔 것</b>. 둘 다 "브리지"지만 목적이 완전히 다름.
+</div>
+
+<h2>3. 빠진 패키지 + 왜 합리적인 선택인가</h2>
+<table>
+  <tr><th style="width:21%">빠진 rmf_demos 패키지</th><th style="width:30%">그 역할은 어디서 채우나</th>
+      <th>왜 빼는 게 합리적</th></tr>
+  <tr>
+    <td class="pkg">rmf_demos_assets<br><span class="bt">(로봇/물체 3D 모델)</span></td>
+    <td><code>controller/pinky_pro/pinky_description</code>
+        (pinky URDF) + slotcar 플러그인은 <b>apt 설치</b>(libslotcar.so)</td>
+    <td>우리 로봇은 데모 TinyRobot이 아니라 <b>pinky(실 타깃)</b>. 로봇 자산은 <b>로봇과 함께
+        <code>controller/</code></b>에 둔다(pingdergarten: 장비=controller, 관제=fleet). 데모용 자산을 따로 둘 이유 없음.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_gz<br><span class="bt">(Gazebo 시뮬 launch)</span></td>
+    <td><code>controller/pinky_pro/pinky_gz_sim</code> +
+        <code>scripts/libi_sim.sh</code>(tmux 래퍼, MODE 토글)</td>
+    <td>시뮬은 <b>로봇에 종속</b> → pinky_gz_sim(로봇 옆)에. RMF 관제(<code>fleet/</code>)와 분리해
+        책임이 명확. world는 pgm_to_gazebo(M1)로 생성.</td>
+  </tr>
+  <tr>
+    <td class="pkg">rmf_demos_bridges<br><span class="bt">(MQTT/socketio 브리지)</span></td>
+    <td><code>service/</code> · <code>app/</code> · <code>web/</code>
+        (<b>비-ROS, 현재 placeholder 미구현</b>)</td>
+    <td>이건 <b>외부 웹/IoT 연동</b> 계층 → ABA에선 <b>비-ROS 앱</b>이 담당(ROS 바깥).
+        학습 초점은 RMF 코어라 <b>나중/별도</b>. (domain_bridge와 혼동 주의 — 위 ⚠️)</td>
+  </tr>
+  <tr>
+    <td class="pkg">(rmf_demos 모놀리식 자체)<br><span class="bt">launch+config 한 덩어리</span></td>
+    <td><code>libi_rmf_bringup</code>(조립 launch) +
+        config는 <code>libi_rmf_fleet_adapter/config</code></td>
+    <td>데모 시나리오 다발(office/hotel…) 대신 우리는 <b>단일 맵</b> → bringup 하나로 충분.
+        패키지 책임을 쪼개 더 명확하게.</td>
+  </tr>
+</table>
+
+<h2>4. 그대로 인용(포팅)한 것 vs 우리가 직접 구축한 것</h2>
+<p style="margin:2px 0 4px;color:#555;">open-rmf(rmf_demos) 코드를 어디까지 가져왔고, 어디부터 우리 고유 작업인지.</p>
+<table>
+  <tr><th style="width:11%">구분</th><th style="width:25%">항목</th><th>출처 · 우리가 바꾼/만든 부분</th></tr>
+  <tr>
+    <td class="warn">인용·포팅</td>
+    <td class="pkg">fleet_adapter / fleet_manager /<br>RobotClientAPI</td>
+    <td>rmf_demos_fleet_adapter <b>4파일 직역 포팅</b>(거의 그대로). 바꾼 것: 패키지명·config 경로·상대 import,
+        그리고 <code>execute_action</code>에 <b>pickup/dropoff 케이스만</b> 추가.</td>
+  </tr>
+  <tr>
+    <td class="warn">인용·포팅</td>
+    <td class="pkg">libi_fleet_config.yaml (구조)</td>
+    <td>rmf_demos <code>tinyRobot_config.yaml</code> <b>틀 그대로</b>. 값은 우리 것:
+        pinky 속도/footprint, library charger·waypoint, <code>reversible:false</code>, <code>actions:[pickup,dropoff]</code>.</td>
+  </tr>
+  <tr>
+    <td class="warn">인용·포팅</td>
+    <td class="pkg">dispatch_delivery.py (골격)</td>
+    <td>rmf_demos_tasks <code>dispatch_action.py</code>의 <b>ApiRequest 발행·compose 조립 패턴</b> 차용.
+        <b>배달 시퀀스(go→pickup→go→dropoff) 조립은 우리 것</b>.</td>
+  </tr>
+  <tr>
+    <td class="warn">인용·포팅</td>
+    <td class="pkg">slotcar 플러그인 파라미터</td>
+    <td>TinyRobot slotcar 기본값 차용. 바꾼 것: <code>tire_radius</code>·<code>base_width</code>(pinky 실측),
+        <code>reversible:false</code>(후진금지), 질량.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">M1 좌표보정 도구</td>
+    <td><code>fix_navgraph.py</code>·<code>make_navgraph.sh</code>·<code>show_navgraph.py</code> —
+        pgm월드↔navgraph 닮음변환(대응점). <b>rmf_demos에 없는 우리 고유</b> (RMS≈1cm).</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">library 맵 일습</td>
+    <td><code>new_map.{pgm,png,yaml,building.yaml,pairs.yaml}</code> — 우리가 그린 도서관 맵.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">실행 스크립트</td>
+    <td><code>libi_sim.sh</code>(tmux sim+rviz, MODE 토글)·<code>rmf.sh</code>(bringup 래퍼)·<code>libi_kill.sh</code>(정리).</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">libi_rmf_bringup launch</td>
+    <td><code>libi_rmf.launch.xml</code> — 코어+어댑터 조립을 우리가 작성.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">pinky-slotcar 통합</td>
+    <td><code>pinky_slotcar.urdf.xacro</code>·<code>pinky_gz_slotcar.urdf.xacro</code> —
+        pinky 몸체에 slotcar 붙이는 변형 + diffdrive/slotcar 토글.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">M3 2번째 로봇 spawn</td>
+    <td><code>launch_sim</code>·<code>libi_sim.sh</code>에 조건부 2대 spawn (negotiation 관찰).</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">RViz TF 연결 fix</td>
+    <td><code>sim_view.launch.py</code> 정적변환(map→world, base_link→base_footprint) —
+        gz↔rviz 좌표 불일치 해결.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">M4 팔 핸들러</td>
+    <td><code>perform_arm_action</code>(mock 로그+딜레이 후 finished) — 우리가 추가한 동작 핸들러.</td>
+  </tr>
+  <tr>
+    <td class="ok">직접 구축</td>
+    <td class="pkg">문서</td>
+    <td><code>트러블슈팅.md</code>·<code>README</code>·<code>docs/</code>·이 PDF — 학습 기록.</td>
+  </tr>
+</table>
+<div class="note">
+  <b>요약:</b> <span class="warn">인용·포팅</span> = <b>RMF↔로봇 핵심 배선(어댑터 3종) + 설정/요청 골격</b> — "검증된 표준을 그대로".
+  <span class="ok">직접 구축</span> = <b>맵·좌표보정·로봇통합·실행환경·팔동작·문서</b> — "우리 로봇(pinky)·맵·task에 맞춘 부분".
+  → <b>바퀴(표준)는 빌려오고, 우리 시나리오에 맞춘 살은 직접 붙였다.</b>
+</div>
+
+<div class="key">
+  <b>핵심 한 줄</b><br>
+  맵·어댑터·tasks·bringup은 rmf_demos를 <b>거의 1:1 미러링</b>, 빠진 3개(assets·gz·bridges)는 <b>역할이 딴 데 있어서</b> 뺀 것:<br>
+  · 로봇 자산·시뮬(assets/gz) → 로봇과 함께 <b><code>controller/pinky_pro</code></b> (우리 로봇은 pinky라 이미 있음)<br>
+  · 외부 웹/MQTT 브리지(bridges) → 비-ROS <b><code>service/app/web</code></b> (앱 계층, 미구현)<br>
+  · <b><code>libi_rmf_bridge</code>는 새로 추가</b> (M5 domain_bridge) — rmf_demos_bridges와는 다른 브리지<br>
+  → <b>"RMF 관제(fleet/)에 필요한 것만 미러링 + 로봇·시뮬은 controller/, 외부연동은 app/으로 분리"</b> — pingdergarten 컨벤션을 따른 합리적 선택.
+</div>
+
+</body>
+</html>
