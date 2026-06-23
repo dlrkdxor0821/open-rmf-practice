@@ -67,7 +67,7 @@ ABA 전체 아키텍처는 [`aba-architecture.md`](./aba-architecture.md) 참고
 
 ---
 
-## 3. 학습 사다리 — M1 ~ M5
+## 3. 학습 사다리 — M1 ~ M6
 
 | 모듈 | 내용 | 원래 step | 쓰는 자산 | nav2? |
 |---|---|---|---|---|
@@ -76,9 +76,12 @@ ABA 전체 아키텍처는 [`aba-architecture.md`](./aba-architecture.md) 참고
 | **M3 다중+교통** | pinky 2~3대 → RMF **traffic negotiation** 관찰 | 5 | — | ❌ |
 | **M4 태스크+팔** | delivery 디스패치 + 팔 상차를 **`perform_action` 가짜 신호**로 "했다 치고" | 6 | `rmf_demos_tasks` 패턴 | ❌ |
 | **M5 (심화)** | pinky **실제 nav2 + EasyFullControl + domain_bridge** 연동 | — | `pinky_navigation`, `domain_bridge` | ✅ |
+| **M6 웹** (선택·개발용) | **rmf-web** 대시보드 = 브라우저에서 **task 제출 + 모니터링**. 실 프로젝트는 자체 `web/` 구축하지만, 개발단계엔 rmf-web 활용 | — | `rmf-web` (open-rmf) | — |
 
 > **핵심**: nav2는 **맨 마지막 M5에서만** 등장한다. M1~M4(slotcar)는 nav2를 *안 하려는 게 아니라*, nav2 연동을 안전하게 배우기 위한 **발판**이다.
 > M2→M5의 가장 큰 변화는 fleet_adapter 안의 "로봇 API" 백엔드 하나가 **`slotcar 토픽` → `nav2 NavigateToPose`** 로 바뀌는 것뿐. (= 노트 6장 "실물 이관 시 시뮬 노드만 교체, RMF/nav graph/태스크 재사용".)
+>
+> **M6(웹·선택)**: `rmf-web`(open-rmf) 대시보드로 브라우저에서 **task 제출 + 모니터링**. **RMF 계층이 아니라 그 위 UI/운영 계층** — 우리 `libi_rmf_tasks`(CLI submitter)의 **GUI 버전 + 모니터링**이다. "task 단위 제어"(배달/순찰 명령)지 직접 운전(teleop)이 아니다. **실 ABA는 `web/`·`service/`를 자체 구축**하지만, **개발·디버깅 단계엔 rmf-web을 붙여** 빠르게 task 던지고 상태 확인하는 용도로 유용. (rmf-web = 프론트 React + api-server가 RMF task API와 연동.)
 
 ---
 
