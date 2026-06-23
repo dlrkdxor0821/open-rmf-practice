@@ -37,8 +37,10 @@ rmf_fleet:
   robots:
     pinky1:
       charger: "pinky1_charger"   # ← navgraph vertex 이름과 일치 (new_map.building.yaml에 명명함)
-    pinky2:
-      charger: "pinky2_charger"   # M3: 2번째 로봇 (traffic negotiation 용, 반대편 끝에서 출발)
+    # M5b(단일로봇 nav2 검증) 동안 pinky2 비활성 — nav2 전역(/navigate_to_pose)이라 namespace 없이는
+    # 둘이 같은 토픽 공유해 유령충돌. M5c(다중로봇)에서 robot별 namespace 주고 부활시킬 것.
+    # pinky2:
+    #   charger: "pinky2_charger"   # M3: 2번째 로봇 (traffic negotiation 용)
 
 fleet_manager:
   ip: "127.0.0.1"

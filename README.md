@@ -155,6 +155,46 @@ ros2 run rmf_demos_tasks dispatch_go_to_place -F libi -R pinky2 -p point_a --use
 - **막히면** → [`트러블슈팅.md`](트러블슈팅.md): 증상별 매뉴얼 (`/robot_state` Publisher 0, RViz 위치, `/map` 충돌 등).
 - 실 프로젝트 task 제출은 CLI 가 아니라 `service`/`app`(미구현). 진짜 배달 task(+팔 `perform_action`)는 **M4** (`libi_rmf_tasks`).
 
+## M4~M5 시뮬 실행 — 배달 task + nav2 연동
+
+### M4 (완료) — 배달 task + 팔 `perform_action`
+`libi_rmf_tasks/dispatch_delivery.py` 로 **compose task**(go→pickup→go→dropoff) 던짐. 팔은 어댑터 `execute_action`
+에서 **mock**(로그+딜레이; 실물은 MoveIt). config `actions:["pickup","dropoff"]`.
+```bash
+ros2 run libi_rmf_tasks dispatch_delivery -F libi -R pinky1 --shelf point_a --desk point_b --book book_42 --use_sim_time
+```
+
+### M5a (완료) — nav2 가 우리 맵에서 pinky 주행 (RMF 없이)
+`MODE=nav2 scripts/libi_sim.sh` → diffdrive pinky + **nav2**(map_server+amcl+planner+controller, 우리 library 맵) + nav2 rviz.
+AMCL `initial_pose`=charger 로 자동 localize, rviz `2D Goal Pose` 찍으면 nav2 가 **경로계획·장애물회피 주행**.
+- nav2 는 navgraph 안 씀(자유공간). navgraph(노란 길)는 **참고 표시** (M5b 에서 기능화).
+
+### M5b (코드 완료 · e2e 미완 = 자원 이슈) — RMF + nav2
+**`fleet_manager.py` 백엔드를 slotcar→nav2 로 교체** (어댑터·RobotClientAPI REST 는 그대로 = "백엔드가 교체점" 시연).
+`/navigate`→**`NavigateToPose`** 액션, `/stop`→goal취소+cmd_vel0, 위치는 **TF `map→base_footprint`**(연속) 로 읽음.
+*(※ `/amcl_pose` 는 움직일 때만 희소 발행이라 정지 로봇 위치 못 받음 → TF 로 우회.)*
+config `pinky2` 주석처리(단일로봇). 다중로봇(namespace)+domain_bridge 는 **M5c**.
+
+**실행 (3 터미널):**
+```bash
+scripts/libi_sim.sh down; scripts/libi_kill.sh                 # 정리(좀비 프로세스 메모리 회수)
+MODE=nav2 scripts/libi_sim.sh                                  # 터미널1: gz + pinky + nav2 + rviz
+ros2 run tf2_ros tf2_echo map base_footprint                   #   ✅게이트: transform 나와야(=위치 원천)
+scripts/rmf.sh                                                 # 터미널2: RMF + 어댑터 + fleet_manager(nav2)
+#   → 'Adding robot [pinky1]' 떠야 함 (안 뜨면 위 TF 게이트 실패)
+source /opt/ros/jazzy/setup.bash && source ~/open-rmf-test/rmf_ws/install/setup.bash
+ros2 run rmf_demos_tasks dispatch_go_to_place -F libi -R pinky1 -p point_b --use_sim_time   # 터미널3
+```
+**검증됨**: `Adding robot [pinky1]` + dispatch 큐 + `Commanding navigate cmd_id` → **RMF→어댑터→fleet_manager→NavigateToPose 흐름 작동**(코드 OK).
+
+**★미해결 이슈 (메모리 여유 있는 환경에서 이어서):**
+1. **메모리 부족(OOM)** — gz+nav2+RMF+rviz 동시구동이 무거워 RMF 프로세스가 `exit -9`(SIGKILL)로 죽음
+   (navigate 시 nav2 costmap/planner 메모리 급증 → OOM). → **RAM 여유 머신** 또는 **rviz 끄고** 구동.
+2. **위치 오인식** — RMF 가 pinky1 을 `[0,0]`(≈point_b)로 봄. AMCL `initial_pose`(charger)가 `map→odom` 에 반영
+   안 된 듯(identity) → 실제 위치(charger)와 어긋남. → AMCL localize 점검 필요(Gazebo 스폰 ↔ map frame, `set_initial_pose` 적용 여부).
+
+> 결정: fleet_manager **유지**(이기종/REST 대응) · 다중로봇은 **domain_bridge**(M5c) · 웹 UI 는 **M6 rmf-web**(개발용). 상세: [`docs/fleet-adapter-architecture.md`](docs/fleet-adapter-architecture.md).
+
 ## 로봇 / 참고 자산
 - 연습 로봇 URDF: `/home/asd/pinky_pro` (`pinky_description`). RMF은 footprint 반경만 fleet config에.
 - `/home/asd/personal_repo/pingdergarten` — **폴더 컨벤션 원본** (controller/service/app/db 최상위 분리)
