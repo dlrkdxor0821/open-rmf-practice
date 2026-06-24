@@ -175,23 +175,24 @@ AMCL `initial_pose`=charger 로 자동 localize, rviz `2D Goal Pose` 찍으면 n
 *(※ `/amcl_pose` 는 움직일 때만 희소 발행이라 정지 로봇 위치 못 받음 → TF 로 우회.)*
 config `pinky2` 주석처리(단일로봇). 다중로봇(namespace)+domain_bridge 는 **M5c**.
 
-**실행 (3 터미널):**
+**실행 (3 터미널):** *(메모리 빠듯하면 `RVIZ=false` 로 rviz 꺼서 OOM 회피)*
 ```bash
 scripts/libi_sim.sh down; scripts/libi_kill.sh                 # 정리(좀비 프로세스 메모리 회수)
-MODE=nav2 scripts/libi_sim.sh                                  # 터미널1: gz + pinky + nav2 + rviz
-ros2 run tf2_ros tf2_echo map base_footprint                   #   ✅게이트: transform 나와야(=위치 원천)
+MODE=nav2 RVIZ=false scripts/libi_sim.sh                       # 터미널1: gz + pinky + nav2 (+ 자동 set_initial_pose)
+ros2 run tf2_ros tf2_echo map base_footprint                   #   ✅게이트: ~(-3.88, 11.2)=charger 나와야 (위치 원천)
 scripts/rmf.sh                                                 # 터미널2: RMF + 어댑터 + fleet_manager(nav2)
 #   → 'Adding robot [pinky1]' 떠야 함 (안 뜨면 위 TF 게이트 실패)
 source /opt/ros/jazzy/setup.bash && source ~/open-rmf-test/rmf_ws/install/setup.bash
 ros2 run rmf_demos_tasks dispatch_go_to_place -F libi -R pinky1 -p point_b --use_sim_time   # 터미널3
 ```
-**검증됨**: `Adding robot [pinky1]` + dispatch 큐 + `Commanding navigate cmd_id` → **RMF→어댑터→fleet_manager→NavigateToPose 흐름 작동**(코드 OK).
+**검증됨(코드)**: `Adding robot [pinky1]` + dispatch 큐 + `Commanding navigate cmd_id` → **RMF→어댑터→fleet_manager→NavigateToPose 흐름 작동**.
 
-**★미해결 이슈 (메모리 여유 있는 환경에서 이어서):**
-1. **메모리 부족(OOM)** — gz+nav2+RMF+rviz 동시구동이 무거워 RMF 프로세스가 `exit -9`(SIGKILL)로 죽음
-   (navigate 시 nav2 costmap/planner 메모리 급증 → OOM). → **RAM 여유 머신** 또는 **rviz 끄고** 구동.
-2. **위치 오인식** — RMF 가 pinky1 을 `[0,0]`(≈point_b)로 봄. AMCL `initial_pose`(charger)가 `map→odom` 에 반영
-   안 된 듯(identity) → 실제 위치(charger)와 어긋남. → AMCL localize 점검 필요(Gazebo 스폰 ↔ map frame, `set_initial_pose` 적용 여부).
+**적용한 수정 (다음 환경서 검증만):**
+1. **위치** — AMCL `set_initial_pose`(charger)가 타이밍상 안 먹어 robot 이 map `[0,0]` 로 뜨던 문제 →
+   **`scripts/rmf/set_initial_pose.sh`** 가 `/initialpose` 를 charger 로 발행해 강제 localize. `MODE=nav2` 가
+   nav2 뜬 뒤 **자동 호출**(15s 지연). 게이트(`tf2_echo map base_footprint`)가 `~(-3.88, 11.2)` 나오면 성공.
+2. **OOM** — `RVIZ=false` 로 rviz 끄면 메모리 절약(Gazebo 로 관찰). 근본 해결은 **RAM 여유 머신**
+   (gz+nav2+RMF 자체가 무거움; 안 죽으면 위 1번 위치만 맞으면 e2e 완주).
 
 > 결정: fleet_manager **유지**(이기종/REST 대응) · 다중로봇은 **domain_bridge**(M5c) · 웹 UI 는 **M6 rmf-web**(개발용). 상세: [`docs/fleet-adapter-architecture.md`](docs/fleet-adapter-architecture.md).
 

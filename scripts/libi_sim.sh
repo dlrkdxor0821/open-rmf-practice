@@ -34,6 +34,7 @@ WORLD="new_map.sdf"
 #   사용:  MODE=slotcar scripts/libi_sim.sh   /   MODE=nav2 scripts/libi_sim.sh
 MODE="${MODE:-diffdrive}"
 NAV2="false"                           # nav2 모드면 true → nav2 스택 창 + nav2 rviz (AMCL이 map→odom 담당)
+RVIZ="${RVIZ:-true}"                   # OOM 대비: RVIZ=false 면 rviz 창 끔 (메모리 절약, Gazebo로만 관찰)
 if [[ "$MODE" == "slotcar" ]]; then
   DESC_FILE="urdf/pinky_slotcar.urdf.xacro"
   ROBOT_NAME="pinky1"                  # config robots.pinky1 과 매칭
@@ -125,18 +126,22 @@ case "$ACTION" in
       "$SOURCE_ENV && ${GZ_EXPORT}exec ros2 launch pinky_gz_sim launch_sim.launch.xml world_name:=$WORLD description_file:=$DESC_FILE robot_name:=$ROBOT_NAME spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y spawn_robot2:=$SPAWN_ROBOT2 robot2_name:=$ROBOT2_NAME spawn2_x:=$SPAWN2_X spawn2_y:=$SPAWN2_Y"
 
     # window 1 (nav2 모드만): nav2 스택 — map_server+amcl+planner+controller (우리 library 맵)
+    #   + (백그라운드) 15s 뒤 set_initial_pose 로 AMCL 을 charger 로 강제 localize.
+    #   (set_initial_pose param 이 타이밍상 안 먹으면 robot 이 map [0,0] 로 떠 RMF 가 위치 오인식 → 이걸로 방지)
     if [[ "$NAV2" == "true" ]]; then
       tmux new-window -t "$SESSION" -n nav2 -c "$REPO_ROOT" \
-        "$SOURCE_ENV && exec ros2 launch pinky_navigation gz_bringup_launch.xml map:=$MAP use_sim_time:=True"
+        "$SOURCE_ENV && { ( sleep 15 && $SCRIPT_DIR/rmf/set_initial_pose.sh ) & } && exec ros2 launch pinky_navigation gz_bringup_launch.xml map:=$MAP use_sim_time:=True"
     fi
 
     # window: rviz — nav2 모드면 nav2_view.rviz(코스트맵·경로·laser, map은 nav2 map_server, map→odom은 AMCL)
     #                아니면 기존 sim_view(slotcar/diffdrive: navgraph + 정적 map→odom)
-    if [[ "$NAV2" == "true" ]]; then
+    if [[ "$NAV2" == "true" && "$RVIZ" == "true" ]]; then
       NAV2_RVIZ="$REPO_ROOT/controller/libi-drive-controller/src/pinky_pro/pinky_navigation/rviz/nav2_view.rviz"
       # show_navgraph(백그라운드)로 navgraph lane·vertex 마커(/navgraph_markers) 발행 → rviz Navgraph 디스플레이가 표시
       tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
         "$SOURCE_ENV && { python3 $SCRIPT_DIR/rmf/show_navgraph.py $NAVGRAPH & } && exec ros2 run rviz2 rviz2 -d $NAV2_RVIZ --ros-args -p use_sim_time:=true"
+    elif [[ "$NAV2" == "true" ]]; then
+      echo "[libi_sim] RVIZ=false → rviz 생략 (메모리 절약). Gazebo 로 관찰."
     else
       tmux new-window -t "$SESSION" -n rviz -c "$REPO_ROOT" \
         "$SOURCE_ENV && exec ros2 launch $SCRIPT_DIR/rmf/sim_view.launch.py map:=$MAP navgraph:=$NAVGRAPH slotcar_tf:=$SLOTCAR_TF"
@@ -150,7 +155,9 @@ case "$ACTION" in
     tmux set-option -t "$SESSION" -g window-status-current-format ' #I:#W '
 
     tmux select-window -t "$SESSION:gazebo"
-    if [[ "$NAV2" == "true" ]]; then WINS="0:gazebo | 1:nav2 | 2:rviz"; else WINS="0:gazebo | 1:rviz"; fi
+    if [[ "$NAV2" == "true" && "$RVIZ" == "true" ]]; then WINS="0:gazebo | 1:nav2 | 2:rviz"
+    elif [[ "$NAV2" == "true" ]]; then WINS="0:gazebo | 1:nav2 (rviz off)"
+    else WINS="0:gazebo | 1:rviz"; fi
     echo "[libi_sim] 시작 (MODE=$MODE, robot=$ROBOT_NAME) — 창(탭): $WINS.  전환 Ctrl-b n/p, detach Ctrl-b d, 종료 $0 down"
     exec tmux attach -t "$SESSION"
     ;;
